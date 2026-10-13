@@ -3,9 +3,9 @@
   "subtitle": "This is your last chance. After this, there is no turning back.",
   "scenes": {
     "default": "downtown",
-    "byAudience": {
-      "owner": "lobby"
-    }
+    "byAudience": [
+      { "audience": "owner", "scene": "lobby" }
+    ]
   },
   "categories": [
     {

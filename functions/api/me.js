@@ -45,13 +45,14 @@ function filter(catalog, audiences) {
   };
 }
 
-// Which scene a person lands in. The byAudience keys are in priority order
-// (owner first) so a person in several groups gets the most specific one.
+// Which scene a person lands in. byAudience is an ordered list (owner first)
+// rather than a map, because Terraform sorts object keys and the priority would
+// be lost; a person in several groups gets the first matching entry.
 function resolveScene(catalog, audiences) {
   const scenes = catalog.scenes ?? {};
-  const byAudience = scenes.byAudience ?? {};
-  const match = Object.keys(byAudience).find((a) => audiences.includes(a));
-  return match ? byAudience[match] : scenes.default ?? null;
+  const list = Array.isArray(scenes.byAudience) ? scenes.byAudience : [];
+  const match = list.find((entry) => audiences.includes(entry.audience));
+  return match ? match.scene : scenes.default ?? null;
 }
 
 export async function onRequestGet({ request, env }) {

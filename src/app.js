@@ -48,21 +48,14 @@ document.addEventListener("wttm", (event) => {
 });
 
 async function fetchCatalog() {
-  let catalog = null;
+  // /api/me returns the public catalog when anonymous and the personal one when
+  // the Access cookie verifies, so one call covers both.
   try {
-    catalog = await fetch("/api/public").then((r) => (r.ok ? r.json() : null));
+    const res = await fetch("/api/me", { credentials: "include" });
+    return res.ok ? res.json() : null;
   } catch {
-    catalog = null;
+    return null;
   }
-  // /api/me is behind Access; an anonymous fetch is an opaque redirect, so this
-  // only succeeds once the visitor has logged in.
-  try {
-    const res = await fetch("/api/me", { redirect: "manual", credentials: "include" });
-    if (res && res.ok) catalog = await res.json();
-  } catch {
-    /* not logged in */
-  }
-  return catalog;
 }
 
 function setupGyro() {

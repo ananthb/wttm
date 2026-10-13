@@ -1,19 +1,23 @@
 import * as THREE from "three";
 import * as util from "./util.js";
 
-const { GREEN, RED, BLUE, CYAN, box, cyl, labelSprite, layoutCatalog } = util;
+const { GREEN, RED, BLUE, CYAN, box, cyl, labelSprite, layoutCatalog, TIER_STEP } = util;
 
-function windowTexture(tint = 0xffd27a) {
+// Cards live in roughly x[-14,14], y[-0.5,4.5], z[-20,-2]. Every scene keeps its
+// props outside that: sides at |x| >= 18, back at z <= -25, overhead at y >= 7,
+// and near-field dressing at z >= 2.
+
+function windows(tint = 0xffd27a, density = 0.45) {
   const canvas = document.createElement("canvas");
   canvas.width = 128;
   canvas.height = 256;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#05080c";
+  ctx.fillStyle = "#04070b";
   ctx.fillRect(0, 0, 128, 256);
   const css = "#" + tint.toString(16).padStart(6, "0");
   for (let y = 8; y < 248; y += 16) {
     for (let x = 8; x < 120; x += 16) {
-      if (Math.random() < 0.45) {
+      if (Math.random() < density) {
         ctx.globalAlpha = 0.25 + Math.random() * 0.75;
         ctx.fillStyle = css;
         ctx.fillRect(x, y, 9, 11);
@@ -27,61 +31,67 @@ function windowTexture(tint = 0xffd27a) {
   return tex;
 }
 
-function sign(text, color, y = 6.4, z = -2) {
-  const sprite = labelSprite(text, color, 7.5);
-  sprite.position.set(0, y, z);
+function sign(text, color) {
+  const sprite = labelSprite(text, color, 9);
+  sprite.position.set(0, 10, -6);
   return sprite;
 }
 
-function floor(size, color, { y = -2, grid = null } = {}) {
+function ground(size, color, y = -2) {
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(size, size),
+    new THREE.MeshStandardMaterial({ color, roughness: 1 })
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = y;
+  return mesh;
+}
+
+function sideWalls(color, { x = 20, z = -12, h = 12, d = 34 } = {}) {
   const group = new THREE.Group();
-  const plane = new THREE.Mesh(new THREE.PlaneGeometry(size * 2, size * 2), new THREE.MeshStandardMaterial({ color, roughness: 1 }));
-  plane.rotation.x = -Math.PI / 2;
-  plane.position.y = y;
-  group.add(plane);
-  if (grid != null) {
-    const g = new THREE.GridHelper(size * 2, size, grid, grid);
-    g.material.transparent = true;
-    g.material.opacity = 0.14;
-    g.position.y = y + 0.01;
-    group.add(g);
+  for (const sx of [-x, x]) {
+    const w = box(0.6, h, d, color);
+    w.position.set(sx, h / 2 - 2, z);
+    group.add(w);
   }
   return group;
 }
 
-// 1. The ship: the Nebuchadnezzar's interior, cold metal and red alert light.
+// 1. Nebuchadnezzar: cold hull, red alert, banks of green monitors.
 function ship(ctx) {
   const env = new THREE.Group();
+  env.add(ground(80, 0x090c10));
+  env.add(sideWalls(0x0c1418, { x: 20, d: 40 }));
+  const back = box(42, 12, 0.6, 0x0a1116);
+  back.position.set(0, 4, -28);
+  env.add(back);
+  env.add(new THREE.AmbientLight(0x1c2a30, 1.5));
 
-  env.add(floor(30, 0x0a0d10, { grid: 0x1f7a4d }));
-  for (let i = -3; i <= 3; i++) {
-    const wall = box(0.4, 8, 44, 0x0c1215);
-    wall.position.set(i * 6, 2, -8);
-    env.add(wall);
-    const rib = box(0.5, 0.5, 0.5, 0x1a2a2e, { emissive: true });
-    rib.position.set(i * 6, 4.5, -8);
-    env.add(rib);
-  }
-  for (const side of [-9, 9]) {
-    const pipe = cyl(0.18, 0.18, 40, 0x26383c);
+  for (const sx of [-19.4, 19.4]) {
+    for (let i = 0; i < 5; i++) {
+      const rib = box(0.5, 9, 0.5, 0x16242a);
+      rib.position.set(sx, 2.5, 2 - i * 7);
+      env.add(rib);
+      const monitor = box(1.8, 6, 0.2, 0x04140c, { emissive: true });
+      monitor.position.set(sx + (sx < 0 ? 0.6 : -0.6), 3, 0 - i * 7);
+      monitor.rotation.y = sx < 0 ? Math.PI / 2 : -Math.PI / 2;
+      env.add(monitor);
+    }
+    const pipe = cyl(0.22, 0.22, 44, 0x24363c);
     pipe.rotation.x = Math.PI / 2;
-    pipe.position.set(side, 1.2, -8);
+    pipe.position.set(sx, 6.6, -8);
     env.add(pipe);
   }
-  const panels = [];
-  for (let i = 0; i < 6; i++) {
-    const monitor = box(2.2, 1.4, 0.1, 0x04120c, { emissive: true });
-    monitor.position.set(-9.6, 2.6 + (i % 2) * 2, -3 - i * 4);
-    monitor.rotation.y = Math.PI / 2;
-    env.add(monitor);
-  }
-  const alert = new THREE.PointLight(RED, 12, 40);
-  alert.position.set(0, 5, -12);
+  const alert = new THREE.PointLight(RED, 14, 60);
+  alert.position.set(0, 6, -10);
   env.add(alert);
-  env.add(sign("NEBUCHADNEZZAR", RED, 6.6));
+  const ghost = new THREE.PointLight(GREEN, 6, 40);
+  ghost.position.set(0, 3, -22);
+  env.add(ghost);
+  env.add(sign("NEBUCHADNEZZAR", RED));
 
   const jack = box(0.6, 0.9, 0.4, 0x11331f, { emissive: true });
-  jack.position.set(3, 1, 2);
+  jack.position.set(3.5, 1, 2);
   jack.userData = { kind: "prop", text: "The jack goes in the back of the skull. Here, it is a button." };
   env.add(jack);
 
@@ -89,12 +99,12 @@ function ship(ctx) {
     id: "ship",
     name: "The Nebuchadnezzar",
     env,
-    layout: layoutCatalog(ctx.catalog, { zForTier: (t) => -3 - t * 5, arc: 0.12 }),
-    spawn: [0, 1.75, 7],
-    look: [0, 1.75, -8],
-    bounds: { x: 9, zMin: -17, zMax: 3 },
-    fog: [0x02060a, 0.03],
-    background: 0x02040a,
+    layout: layoutCatalog(ctx.catalog),
+    spawn: [0, 1.8, 8],
+    look: [0, 1.8, -8],
+    bounds: { x: 16, zMin: -21, zMax: 10 },
+    fog: [0x040a10, 0.03],
+    background: 0x01040a,
     props: [jack],
     animate: (dt, t) => {
       alert.intensity = 8 + Math.sin(t * 2.2) * 6;
@@ -102,139 +112,157 @@ function ship(ctx) {
   };
 }
 
-// 2. The construct: the white training room.
+// 2. The Construct: blinding white, nothing but the chairs and the TV.
 function construct(ctx) {
   const env = new THREE.Group();
-  const white = 0xf2f4f2;
-
-  env.add(floor(40, white));
-  for (const [x, z] of [[-16, -6], [16, -6], [0, -30]]) {
-    const wall = box(x === 0 ? 44 : 0.4, 14, x === 0 ? 0.4 : 20, white);
-    wall.position.set(x, 4, z);
-    env.add(wall);
-  }
-  env.add(new THREE.AmbientLight(0xffffff, 2.2));
-  for (const [x, y, z] of [[0, 8, 4], [-10, 6, -6], [10, 6, -6]]) {
-    const light = new THREE.PointLight(0xffffff, 8, 60);
+  const white = 0xf4f6f4;
+  env.add(ground(80, white));
+  const back = box(60, 20, 0.6, white);
+  back.position.set(0, 6, -30);
+  env.add(back);
+  env.add(new THREE.AmbientLight(0xffffff, 2.6));
+  for (const [x, y, z] of [[-14, 10, 4], [14, 10, 4], [0, 12, -20]]) {
+    const light = new THREE.PointLight(0xffffff, 9, 80);
     light.position.set(x, y, z);
     env.add(light);
   }
+  const grid = new THREE.GridHelper(80, 40, 0xcfd6d2, 0xcfd6d2);
+  grid.material.transparent = true;
+  grid.material.opacity = 0.35;
+  grid.position.y = -1.99;
+  env.add(grid);
 
   const chair = (x) => {
     const g = new THREE.Group();
-    const seat = box(1.1, 0.2, 1.0, 0x141414);
+    const seat = box(1.1, 0.2, 1.0, 0x111111);
     seat.position.y = 0.6;
-    const back = box(1.1, 1.2, 0.2, 0x141414);
-    back.position.set(0, 1.2, -0.4);
-    g.add(seat, back);
-    g.position.set(x, 0, 2);
+    const backrest = box(1.1, 1.2, 0.2, 0x111111);
+    backrest.position.set(0, 1.2, -0.4);
+    g.add(seat, backrest);
+    g.position.set(x, 0, 3);
     return g;
   };
-  env.add(chair(-1.1), chair(1.1));
-  const tv = box(1.6, 1.1, 0.5, 0x0a0a0a);
-  tv.position.set(0, 0.9, 4.2);
+  env.add(chair(-1.2), chair(1.2));
+  const tv = box(1.6, 1.1, 0.6, 0x0a0a0a);
+  tv.position.set(0, 0.9, 4.6);
   env.add(tv);
-  env.add(sign("THE CONSTRUCT", 0x2b3a33, 6.6));
+  env.add(sign("THE CONSTRUCT", 0x2b3a33));
 
-  const switchProp = box(0.5, 0.5, 0.5, 0x0a0a0a);
-  switchProp.position.set(3.5, 1, 2);
-  switchProp.userData = { kind: "prop", text: "Load the program. Anything you can imagine, we can put you in." };
-  env.add(switchProp);
+  const prop = box(0.5, 0.5, 0.5, 0x0a0a0a);
+  prop.position.set(4, 1, 3);
+  prop.userData = { kind: "prop", text: "Anything you can imagine, we can put you in." };
+  env.add(prop);
 
   return {
     id: "construct",
     name: "The Construct",
     env,
-    layout: layoutCatalog(ctx.catalog, { zForTier: (t) => -2 - t * 5, arc: 0.08 }),
-    spawn: [0, 1.75, 9],
-    look: [0, 1.75, -8],
-    bounds: { x: 12, zMin: -18, zMax: 4 },
-    fog: [0xdadfe0, 0.02],
-    background: 0xdfe4e2,
-    props: [switchProp],
+    layout: layoutCatalog(ctx.catalog),
+    spawn: [0, 1.8, 11],
+    look: [0, 1.8, -8],
+    bounds: { x: 16, zMin: -22, zMax: 14 },
+    fog: [0xe4e8e6, 0.018],
+    background: 0xe8ece9,
+    props: [prop],
     animate: () => {},
   };
 }
 
-// 3. The Keymaker's room: shelves of keys, warm candlelight.
+// 3. The Keymaker's Room: amber, shelves and hundreds of hanging keys.
 function keymaker(ctx) {
   const env = new THREE.Group();
-  env.add(floor(26, 0x241811, { grid: 0x5a3a1c }));
-  env.add(new THREE.AmbientLight(0x2a1c10, 1.6));
+  env.add(ground(60, 0x1c1208));
+  env.add(sideWalls(0x2a1a0d, { x: 19, h: 14, d: 36 }));
+  const back = box(40, 14, 0.6, 0x241609);
+  back.position.set(0, 5, -28);
+  env.add(back);
+  env.add(new THREE.AmbientLight(0x2a1a0d, 1.7));
 
+  const gold = new THREE.MeshStandardMaterial({ color: 0xd9b26a, metalness: 0.85, roughness: 0.28 });
   for (let i = 0; i < 5; i++) {
-    const shelf = box(9, 0.2, 0.6, 0x3a2717);
-    shelf.position.set(-10, 1 + i * 1.4, -6);
-    shelf.rotation.y = Math.PI / 2;
-    env.add(shelf);
+    for (const sx of [-18.4, 18.4]) {
+      const shelf = box(0.6, 0.2, 24, 0x3a2717);
+      shelf.position.set(sx, 1 + i * 1.6, -8);
+      env.add(shelf);
+    }
   }
   const keys = [];
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 90; i++) {
     const key = new THREE.Group();
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.03, 8, 16), new THREE.MeshStandardMaterial({ color: 0xd9b26a, metalness: 0.8, roughness: 0.3 }));
-    const shaft = box(0.04, 0.35, 0.04, 0xd9b26a, { emissive: true });
-    shaft.position.y = -0.24;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.03, 8, 14), gold);
+    const shaft = box(0.05, 0.4, 0.05, 0xd9b26a, { emissive: true });
+    shaft.position.y = -0.26;
     key.add(ring, shaft);
-    key.position.set(-10, 2.4 - (i % 5) * 1.4, -12 + (i % 8) * 1.4);
+    const overhead = i < 60;
+    key.position.set(
+      overhead ? (Math.random() - 0.5) * 34 : (Math.random() < 0.5 ? -18 : 18),
+      overhead ? 7 + Math.random() * 3 : 1 + (i % 5) * 1.6,
+      -14 + Math.random() * 18
+    );
     key.userData = { kind: "prop", text: "One of these opens a door you have not found yet." };
     env.add(key);
-    keys.push({ key, phase: i });
+    keys.push({ key, phase: i * 0.4 });
   }
-  const candle = cyl(0.08, 0.1, 0.5, 0xffb347, { emissive: true });
-  candle.position.set(0, 0.25, 2);
-  env.add(candle);
-  const glow = new THREE.PointLight(0xffa94d, 8, 26);
-  glow.position.set(0, 2, 0);
+  const glow = new THREE.PointLight(0xffb457, 12, 50);
+  glow.position.set(0, 5, -6);
   env.add(glow);
-  env.add(sign("THE KEYMAKER", 0xd9b26a, 6.6));
+  env.add(sign("THE KEYMAKER", 0xd9b26a));
 
   return {
     id: "keymaker",
     name: "The Keymaker's Room",
     env,
-    layout: layoutCatalog(ctx.catalog, { zForTier: (t) => -3 - t * 5, arc: 0.1 }),
-    spawn: [0, 1.75, 8],
-    look: [0, 1.75, -8],
-    bounds: { x: 10, zMin: -17, zMax: 4 },
-    fog: [0x140b06, 0.035],
-    background: 0x120a05,
-    props: keys.slice(0, 6).map((k) => k.key),
+    layout: layoutCatalog(ctx.catalog),
+    spawn: [0, 1.8, 9],
+    look: [0, 1.8, -8],
+    bounds: { x: 16, zMin: -22, zMax: 12 },
+    fog: [0x150b04, 0.036],
+    background: 0x120803,
+    props: keys.slice(0, 8).map((k) => k.key),
     animate: (dt, t) => {
-      glow.intensity = 6 + Math.sin(t * 6) * 2;
-      for (const { key, phase } of keys) key.rotation.z = Math.sin(t + phase) * 0.12;
+      glow.intensity = 9 + Math.sin(t * 5) * 3;
+      for (const { key, phase } of keys) key.rotation.z = Math.sin(t + phase) * 0.15;
     },
   };
 }
 
-// 4. The Oracle's apartment: warm, domestic, the red phone.
+// 4. The Oracle's Apartment: warm and lived-in, the red phone.
 function oracle(ctx) {
   const env = new THREE.Group();
-  env.add(floor(24, 0x3b2a1e, { grid: 0x6a4a2c }));
-  env.add(new THREE.AmbientLight(0x3a2a18, 1.8));
+  env.add(ground(50, 0x34261a));
+  env.add(sideWalls(0x4a3826, { x: 18, h: 12, d: 32 }));
+  const back = box(36, 12, 0.6, 0x5a4531);
+  back.position.set(0, 3, -27);
+  env.add(back);
+  env.add(new THREE.AmbientLight(0x3a2a18, 2));
 
-  const backWall = box(24, 9, 0.4, 0x6a5137);
-  backWall.position.set(0, 3, -12);
-  env.add(backWall);
-  const counter = box(10, 1, 1.2, 0x4a3826);
-  counter.position.set(-6, 0.4, -10);
+  const counter = box(10, 1, 1.4, 0x4a3826);
+  counter.position.set(-12, 0.6, 0);
   env.add(counter);
-  const sofa = box(4, 1, 1.6, 0x5a3b2a);
-  sofa.position.set(5, 0.5, -6);
+  const sofa = box(4.6, 1, 1.6, 0x5a3b2a);
+  sofa.position.set(11, 0.6, 0);
   env.add(sofa);
-  const lamp = cyl(0.1, 0.3, 1.6, 0xffd9a0, { emissive: true });
-  lamp.position.set(8, 0.8, -9);
+  const lamp = cyl(0.12, 0.34, 1.8, 0xffd9a0, { emissive: true });
+  lamp.position.set(-6, 0.9, 6);
   env.add(lamp);
-  const lampLight = new THREE.PointLight(0xffc98a, 10, 30);
-  lampLight.position.set(8, 2, -8);
+  const lampLight = new THREE.PointLight(0xffc98a, 16, 50);
+  lampLight.position.set(-6, 3, 6);
   env.add(lampLight);
-  env.add(sign("THE ORACLE", 0xffc98a, 6.6));
+  const lamp2 = cyl(0.12, 0.34, 1.8, 0xffd9a0, { emissive: true });
+  lamp2.position.set(9, 0.9, 6);
+  env.add(lamp2);
+  const lampLight2 = new THREE.PointLight(0xffc98a, 12, 40);
+  lampLight2.position.set(9, 3, 6);
+  env.add(lampLight2);
+  env.add(sign("THE ORACLE", 0xffc98a));
 
   const phone = new THREE.Group();
-  const base = box(0.5, 0.3, 0.4, RED, { emissive: true });
-  const handset = box(0.5, 0.14, 0.16, 0x1a0000);
-  handset.position.y = 0.22;
-  phone.add(base, handset);
-  phone.position.set(2, 1, 1);
+  phone.add(box(0.5, 0.3, 0.4, RED, { emissive: true }), (() => {
+    const h = box(0.5, 0.14, 0.16, 0x2a0000);
+    h.position.y = 0.22;
+    return h;
+  })());
+  phone.position.set(2.5, 1, 3);
   phone.rotation.y = -0.5;
   phone.userData = { kind: "prop", text: "It rings. You already know who it is." };
   env.add(phone);
@@ -243,48 +271,50 @@ function oracle(ctx) {
     id: "oracle",
     name: "The Oracle's Apartment",
     env,
-    layout: layoutCatalog(ctx.catalog, { zForTier: (t) => -3 - t * 5, arc: 0.1 }),
-    spawn: [0, 1.75, 8],
-    look: [0, 1.75, -8],
-    bounds: { x: 10, zMin: -16, zMax: 5 },
+    layout: layoutCatalog(ctx.catalog),
+    spawn: [0, 1.8, 9],
+    look: [0, 1.8, -8],
+    bounds: { x: 16, zMin: -22, zMax: 12 },
     fog: [0x1a120a, 0.03],
-    background: 0x180f08,
+    background: 0x160e07,
     props: [phone],
     animate: (dt, t) => {
-      lampLight.intensity = 8 + Math.sin(t * 1.3) * 2;
+      lampLight.intensity = 13 + Math.sin(t * 1.3) * 3;
     },
   };
 }
 
-// 5. The lobby shootout: marble columns, slow bullets, the surround hallway.
+// 5. The Lobby: cold marble columns, slow bullets, the surround hallway.
 function lobby(ctx) {
   const env = new THREE.Group();
-  env.add(floor(30, 0x14161a, { grid: 0x223040 }));
-  env.add(new THREE.AmbientLight(0x2b3440, 1.7));
-
-  for (const side of [-7, 7]) {
-    for (let i = 0; i < 5; i++) {
-      const column = cyl(0.6, 0.7, 9, 0xd8d2c4);
-      column.position.set(side, 2.5, -2 - i * 5);
+  env.add(ground(60, 0x12151b));
+  env.add(new THREE.AmbientLight(0x2b3440, 1.9));
+  for (const side of [-17, 17]) {
+    for (let i = 0; i < 6; i++) {
+      const column = cyl(0.7, 0.8, 11, 0xd8d2c4);
+      column.position.set(side, 3.5, 0 - i * 5);
       env.add(column);
     }
   }
-  const keyLight = new THREE.PointLight(0xbcd4ff, 10, 60);
-  keyLight.position.set(0, 8, -6);
-  env.add(keyLight);
+  const back = box(40, 16, 0.6, 0x1a1e26);
+  back.position.set(0, 6, -28);
+  env.add(back);
+  const key = new THREE.PointLight(0xbcd4ff, 18, 90);
+  key.position.set(0, 10, -8);
+  env.add(key);
 
   const bullets = [];
-  for (let i = 0; i < 30; i++) {
-    const b = cyl(0.03, 0.03, 1.6, 0xfff2c0, { emissive: true });
+  for (let i = 0; i < 40; i++) {
+    const b = cyl(0.03, 0.03, 1.8, 0xfff2c0, { emissive: true });
     b.rotation.z = Math.PI / 2;
-    b.position.set(-10 + (i % 10) * 2, 1 + ((i / 10) | 0) * 0.6, -14 + (i % 3) * 0.2);
+    b.position.set(-16 + (i % 10) * 3.4, 7 + ((i / 10) | 0) * 0.7, -20 + (i % 4) * 1.5);
     env.add(b);
     bullets.push({ b, phase: i * 0.4 });
   }
-  env.add(sign("THE LOBBY", 0xbcd4ff, 7.2, -4));
+  env.add(sign("THE LOBBY", 0xbcd4ff));
 
-  const gun = box(0.9, 0.25, 0.25, 0x1b1b1b, { emissive: true });
-  gun.position.set(3, 0.6, 2);
+  const gun = box(0.9, 0.25, 0.25, 0x141414, { emissive: true });
+  gun.position.set(3.5, 0.6, 3);
   gun.userData = { kind: "prop", text: "Dodge. Do not let go of the link." };
   env.add(gun);
 
@@ -292,66 +322,79 @@ function lobby(ctx) {
     id: "lobby",
     name: "The Lobby",
     env,
-    layout: layoutCatalog(ctx.catalog, { zForTier: (t) => -4 - t * 5, arc: 0 }),
-    spawn: [0, 1.75, 10],
-    look: [0, 1.75, -8],
-    bounds: { x: 8, zMin: -18, zMax: 5 },
-    fog: [0x05070b, 0.028],
-    background: 0x04060a,
+    layout: layoutCatalog(ctx.catalog),
+    spawn: [0, 1.8, 11],
+    look: [0, 1.8, -8],
+    bounds: { x: 16, zMin: -23, zMax: 13 },
+    fog: [0x070c14, 0.026],
+    background: 0x03060c,
     props: [gun],
     animate: (dt, t) => {
-      for (const { b, phase } of bullets) b.position.x = Math.sin(t * 0.6 + phase) * 9;
+      for (const { b, phase } of bullets) b.position.x = Math.sin(t * 0.5 + phase) * 15;
     },
   };
 }
 
-// 6. Downtown: a city street at night, rain, neon, a phone booth.
+// 6. Downtown: night street, neon, rain, a phone booth.
 function downtown(ctx) {
   const env = new THREE.Group();
-  env.add(floor(40, 0x080a0d, { grid: 0x14202a }));
-  env.add(new THREE.AmbientLight(0x1a2230, 1.5));
+  env.add(ground(80, 0x070a0e));
+  env.add(new THREE.AmbientLight(0x1a2230, 1.6));
 
-  const tex = windowTexture();
-  for (let i = 0; i < 14; i++) {
+  const tex = windows(0xffd27a);
+  const neons = [0xff2f6d, 0x2ff5ff, 0xffd23b, 0x9b5cff];
+  for (let i = 0; i < 18; i++) {
     const side = i % 2 === 0 ? -1 : 1;
-    const h = 8 + Math.random() * 18;
-    const b = box(6, h, 6, 0x0a0e14);
-    b.position.set(side * (12 + Math.random() * 6), h / 2 - 2, -6 - i * 4 + Math.random() * 2);
-    const windows = new THREE.Mesh(
-      new THREE.PlaneGeometry(5.6, h - 1),
+    const h = 12 + Math.random() * 22;
+    const b = box(7, h, 7, 0x0a0e14);
+    b.position.set(side * (21 + Math.random() * 10), h / 2 - 2, -6 - i * 4 + Math.random() * 3);
+    const win = new THREE.Mesh(
+      new THREE.PlaneGeometry(6.4, h - 1),
       new THREE.MeshBasicMaterial({ map: tex.clone(), transparent: true })
     );
-    windows.material.map.needsUpdate = true;
-    windows.position.set(0, 0, side < 0 ? 3.05 : -3.05);
-    if (side > 0) windows.rotation.y = Math.PI;
-    b.add(windows);
+    win.material.map.needsUpdate = true;
+    win.position.set(0, 0, side < 0 ? 3.55 : -3.55);
+    if (side > 0) win.rotation.y = Math.PI;
+    b.add(win);
+    if (i % 3 === 0) {
+      const neon = box(0.3, 4, 0.3, neons[i % neons.length], { emissive: true });
+      neon.position.set(side * 16, 5 + Math.random() * 4, -6 - i * 4);
+      env.add(neon);
+      const nl = new THREE.PointLight(neons[i % neons.length], 8, 30);
+      nl.position.copy(neon.position);
+      env.add(nl);
+    }
     env.add(b);
   }
   for (let i = 0; i < 6; i++) {
-    const lamp = cyl(0.08, 0.08, 4, 0x1c2830);
-    lamp.position.set(i % 2 ? -5 : 5, 0, -4 - i * 6);
-    const bulb = new THREE.PointLight(0x6cf0ff, 6, 20);
-    bulb.position.set(i % 2 ? -5 : 5, 3.4, -4 - i * 6);
-    env.add(lamp, bulb);
+    const x = i % 2 ? -14 : 14;
+    const post = cyl(0.08, 0.08, 5, 0x1c2830);
+    post.position.set(x, 0.5, -4 - i * 6);
+    const bulb = new THREE.PointLight(0x6cf0ff, 7, 24);
+    bulb.position.set(x, 4.4, -4 - i * 6);
+    env.add(post, bulb);
   }
-  env.add(sign("DOWNTOWN", CYAN, 7.5, -6));
+  env.add(sign("DOWNTOWN", CYAN));
 
-  const booth = box(1.2, 2.4, 1.2, 0x123040, { emissive: true });
-  booth.position.set(4, 0.2, 1);
+  const booth = box(1.2, 2.6, 1.2, 0x123040, { emissive: true });
+  booth.position.set(5, 0.3, 3);
   booth.userData = { kind: "prop", text: "Follow the white rabbit. Knock, knock." };
   env.add(booth);
 
   const rain = (() => {
-    const count = 1200;
+    const count = 1600;
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 60;
-      pos[i * 3 + 1] = Math.random() * 30;
-      pos[i * 3 + 2] = -Math.random() * 50;
+      pos[i * 3] = (Math.random() - 0.5) * 80;
+      pos[i * 3 + 1] = Math.random() * 34;
+      pos[i * 3 + 2] = -Math.random() * 60;
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    const p = new THREE.Points(g, new THREE.PointsMaterial({ color: 0x6cf0ff, size: 0.05, transparent: true, opacity: 0.6 }));
+    const p = new THREE.Points(
+      g,
+      new THREE.PointsMaterial({ color: 0x6cf0ff, size: 0.05, transparent: true, opacity: 0.55 })
+    );
     env.add(p);
     return p;
   })();
@@ -360,16 +403,16 @@ function downtown(ctx) {
     id: "downtown",
     name: "The Street",
     env,
-    layout: layoutCatalog(ctx.catalog, { zForTier: (t) => -3 - t * 5, arc: 0.1 }),
-    spawn: [0, 1.75, 9],
-    look: [0, 1.75, -8],
-    bounds: { x: 9, zMin: -17, zMax: 5 },
-    fog: [0x03060b, 0.03],
-    background: 0x02040a,
+    layout: layoutCatalog(ctx.catalog),
+    spawn: [0, 1.8, 10],
+    look: [0, 1.8, -8],
+    bounds: { x: 16, zMin: -22, zMax: 13 },
+    fog: [0x03060e, 0.028],
+    background: 0x02030a,
     props: [booth],
-    animate: (dt, t) => {
+    animate: (dt) => {
       const attr = rain.geometry.getAttribute("position");
-      for (let i = 1; i < attr.count; i += 3) attr.array[i * 1] -= dt * 6;
+      for (let i = 1; i < attr.count; i += 3) attr.array[i] -= dt * 8;
       attr.needsUpdate = true;
     },
   };

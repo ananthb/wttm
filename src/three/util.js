@@ -6,10 +6,11 @@ export const RED = 0xff3b5c;
 export const BLUE = 0x3b7bff;
 export const CYAN = 0x6cf0ff;
 
-export const CARD_W = 2.5;
-export const CARD_H = 1.55;
-export const GRID_X = 2.85;
-export const GRID_Y = 2.0;
+export const CARD_W = 2.2;
+export const CARD_H = 1.375;
+export const GRID_X = 2.5;
+export const GRID_Y = 1.8;
+export const TIER_STEP = 7;
 
 export const ACCENTS = {
   apps: 0x6cf0ff,
@@ -240,9 +241,11 @@ export function makeLoginPanel(subtitle) {
 }
 
 // Categories in tiers; every entry is placed so the whole catalog is present
-// and reachable. A scene tunes depth, height and arc.
+// and reachable. A scene tunes depth, height and arc. Columns per category are
+// capped so a big category stays a compact block, and blocks are spaced by
+// block width plus a gap so no two cards touch.
 export function layoutCatalog(catalog, opts = {}) {
-  const { zForTier = (t) => -4 - t * 5, y = 1.75, arc = 0 } = opts;
+  const { zForTier = (t) => -4 - t * TIER_STEP, y = 1.8, arc = 0, thick = opts.thick ?? 0 } = opts;
   const panels = [];
   const headers = [];
   const byTier = new Map();
@@ -255,15 +258,15 @@ export function layoutCatalog(catalog, opts = {}) {
     const z = zForTier(tier);
     categories.forEach((category, ci) => {
       const apps = category.apps ?? [];
-      const cols = apps.length <= 1 ? 1 : apps.length <= 4 ? 2 : 3;
+      const cols = apps.length <= 1 ? 1 : apps.length <= 4 ? 2 : apps.length <= 9 ? 3 : 4;
       const rows = Math.ceil(apps.length / cols);
       const gridW = cols * GRID_X;
-      const baseX = (ci - (categories.length - 1) / 2) * (gridW + 3.2);
+      const baseX = (ci - (categories.length - 1) / 2) * (gridW + 4.5);
       apps.forEach((app, i) => {
         const col = i % cols;
         const row = (i / cols) | 0;
         const x = baseX + (col - (cols - 1) / 2) * GRID_X;
-        const zz = z + (arc ? Math.abs(baseX) * arc : 0);
+        const zz = z + (arc ? Math.abs(baseX) * arc : 0) + (thick ? row * thick : 0);
         panels.push({ app, categoryId: category.id, x, y: y + ((rows - 1) / 2 - row) * GRID_Y, z: zz });
       });
       headers.push({

@@ -1,0 +1,22 @@
+{
+  "name": "wttm",
+  "version": "0.1.0",
+  "description": "Welcome To The Matrix - a first-person Elm + Three.js landing page",
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs && npx --yes wrangler pages dev dist --compatibility-date=2025-01-01",
+    "deploy": "npx --yes wrangler pages deploy dist"
+  },
+  "devDependencies": {
+    "elm": "0.19.1-6",
+    "esbuild": "^0.24.0",
+    "three": "^0.170.0"
+  },
+  "allowScripts": {
+    "elm": true,
+    "esbuild": true
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "title": "Welcome To The Matrix",
+  "subtitle": "This is your last chance. After this, there is no turning back.",
+  "categories": [
+    {
+      "id": "apps",
+      "label": "Apps",
+      "icon": "◈",
+      "tier": 0,
+      "audience": ["everyone"],
+      "apps": [
+        { "id": "chat", "title": "Chat", "description": "Talk to the machines", "url": "https://example.com/chat", "icon": "💬", "audience": ["everyone"] },
+        { "id": "passwords", "title": "Passwords", "description": "The vault", "url": "https://example.com/vault", "icon": "🔐", "audience": ["everyone"] }
+      ]
+    },
+    {
+      "id": "media",
+      "label": "Media",
+      "icon": "▶",
+      "tier": 0,
+      "audience": ["everyone"],
+      "apps": [
+        { "id": "watch", "title": "Watch", "description": "Everything, streaming", "url": "https://example.com/watch", "icon": "🎞", "audience": ["everyone"] },
+        { "id": "requests", "title": "Requests", "description": "Ask for more", "url": "https://example.com/requests", "icon": "🔎", "audience": ["everyone"] }
+      ]
+    },
+    {
+      "id": "websites",
+      "label": "Websites",
+      "icon": "🌐",
+      "tier": 0,
+      "audience": ["everyone"],
+      "apps": [
+        { "id": "site-home", "title": "Home", "description": "The front door", "url": "https://example.com", "icon": "🏠", "audience": ["everyone"] }
+      ]
+    },
+    {
+      "id": "platform",
+      "label": "Platform",
+      "icon": "▤",
+      "tier": 1,
+      "audience": ["owner"],
+      "apps": [
+        { "id": "nomad", "title": "Nomad", "description": "Where the work runs", "url": "https://example.com/nomad", "icon": "⚙", "audience": ["owner"] },
+        { "id": "vault", "title": "Vault", "description": "The secrets", "url": "https://example.com/vault", "icon": "🗝", "audience": ["owner"] }
+      ]
+    },
+    {
+      "id": "homeassistant",
+      "label": "Home Assistant",
+      "icon": "⌂",
+      "tier": 1,
+      "audience": ["owner"],
+      "apps": [
+        { "id": "ha-129", "title": "129", "description": "Home Assistant", "url": "https://example.com/129", "icon": "⌂", "audience": ["owner"] }
+      ]
+    },
+    {
+      "id": "build",
+      "label": "Build",
+      "icon": "⌘",
+      "tier": 2,
+      "audience": ["coder"],
+      "apps": [
+        { "id": "workspaces", "title": "Workspaces", "description": "A shell on the platform", "url": "https://example.com/coder", "icon": "⌨", "audience": ["coder"] }
+      ]
+    }
+  ]
+}

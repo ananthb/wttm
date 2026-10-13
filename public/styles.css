@@ -1,0 +1,231 @@
+:root {
+  --green: #4dff9e;
+  --green-dim: #1f7a4d;
+  --cyan: #6cf0ff;
+  --red: #ff3b5c;
+  --blue: #3b7bff;
+  --bg: #02060a;
+  --ink: #c9f7dd;
+  --font: "SFMono-Regular", "JetBrains Mono", "Fira Code", ui-monospace, Menlo,
+    Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app,
+.wttm {
+  position: fixed;
+  inset: 0;
+}
+
+wttm-scene {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+wttm-scene canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(1rem, 3vw, 2.5rem);
+}
+
+.hud {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 42ch;
+  text-shadow: 0 0 12px rgba(77, 255, 158, 0.35);
+}
+
+.hud h1 {
+  margin: 0;
+  font-size: clamp(1.1rem, 2.4vw, 1.7rem);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+
+.hud .subtitle {
+  margin: 0;
+  font-size: clamp(0.72rem, 1.4vw, 0.9rem);
+  color: var(--green-dim);
+  letter-spacing: 0.04em;
+}
+
+.hud .who {
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--cyan);
+  opacity: 0.75;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  font-size: clamp(0.66rem, 1.2vw, 0.78rem);
+  color: var(--green-dim);
+  letter-spacing: 0.03em;
+}
+
+.footer .keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+}
+
+.footer kbd {
+  font-family: inherit;
+  color: var(--green);
+  border: 1px solid rgba(77, 255, 158, 0.3);
+  border-radius: 0.3rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.9em;
+}
+
+.brand {
+  color: var(--green-dim);
+  opacity: 0.6;
+}
+
+.status {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  text-align: center;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  color: var(--green-dim);
+  text-transform: uppercase;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.status.error {
+  color: var(--red);
+  animation: none;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.blue {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 45%, #00131f, #000 70%);
+  pointer-events: auto;
+  text-align: center;
+  padding: 2rem;
+}
+
+.blue .card {
+  max-width: 40ch;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.blue h2 {
+  margin: 0;
+  color: var(--blue);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: clamp(1rem, 2.2vw, 1.4rem);
+}
+
+.blue p {
+  margin: 0;
+  color: #9fc3ff;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.blue button {
+  pointer-events: auto;
+  font-family: inherit;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid rgba(108, 240, 255, 0.4);
+  border-radius: 0.35rem;
+  padding: 0.55rem 1.1rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.blue button:hover {
+  background: rgba(108, 240, 255, 0.12);
+  border-color: var(--cyan);
+}
+
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.18) 3px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+.vignette::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(0, 0, 0, 0) 40%,
+    rgba(0, 0, 0, 0.65) 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status {
+    animation: none;
+  }
+}

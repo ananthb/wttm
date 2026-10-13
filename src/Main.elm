@@ -431,7 +431,7 @@ viewFooter model =
             div [ class "footer" ]
                 [ div [ class "keys" ]
                     [ span [] [ text "choose a pill to wake up" ] ]
-                , viewSignOut model
+                , viewColophon model
                 ]
 
         _ ->
@@ -455,17 +455,21 @@ viewFooter model =
                         , span [] [ kbd [] [ text "Esc" ], text " release" ]
                         ]
                     )
-                , viewSignOut model
+                , viewColophon model
                 ]
 
 
-viewSignOut : Model -> Html Msg
-viewSignOut model =
-    if loggedIn model then
-        a [ class "brand signout", href "/cdn-cgi/access/logout" ] [ text "sign out" ]
+viewColophon : Model -> Html Msg
+viewColophon model =
+    div [ class "colophon" ]
+        [ a [ class "brand", href "https://github.com/ananthb/wttm" ] [ text "wttm" ]
+        , a [ class "license", href "https://github.com/ananthb/wttm/blob/main/LICENSE" ] [ text "AGPL-3.0" ]
+        , if loggedIn model then
+            a [ class "brand signout", href "/cdn-cgi/access/logout" ] [ text "sign out" ]
 
-    else
-        span [ class "brand" ] [ text "wttm" ]
+          else
+            text ""
+        ]
 
 
 viewTouch : Model -> Html Msg
@@ -522,7 +526,7 @@ viewFlat model =
         , viewHud model
         , viewStatus model
         , viewFlatBody model
-        , div [ class "flat-footer" ] [ viewSignOut model ]
+        , div [ class "flat-footer" ] [ viewColophon model ]
         ]
 
 

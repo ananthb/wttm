@@ -1,6 +1,12 @@
 {
   "title": "Welcome To The Matrix",
   "subtitle": "This is your last chance. After this, there is no turning back.",
+  "scenes": {
+    "default": "downtown",
+    "byAudience": {
+      "owner": "lobby"
+    }
+  },
   "categories": [
     {
       "id": "apps",

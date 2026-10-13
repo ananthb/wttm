@@ -37,12 +37,39 @@ npm run dev        # build, then wrangler pages dev dist
 
 Cloudflare Pages runs `npm run build` and serves `dist/` with `functions/`.
 
+## Scenes
+
+After the red pill you land in one of six scenes, chosen per audience by the
+catalog's `scenes.byAudience` map (in the platform) and overridable with
+`?scene=<id>`:
+
+| id | Scene |
+|---|---|
+| `ship` | The Nebuchadnezzar |
+| `construct` | The Construct |
+| `keymaker` | The Keymaker's Room |
+| `oracle` | The Oracle's Apartment |
+| `lobby` | The Lobby |
+| `downtown` | The Street |
+
+Each scene is a module in `src/three/scenes.js` with its own environment,
+lighting and a signature interactive prop; the catalog entries are laid out by
+a shared helper so every entry is present and reachable. Add one by exporting a
+builder and listing it in `SCENE_ORDER`.
+
 ## Controls
 
 The opening zooms in over Neo's shoulder to the desk; click the red pill. Once
-inside, it is a first-person scene: **W A S D** to move (a little), **mouse** to
-look (click once to capture the pointer), **click** to open what the crosshair
-is on, **Esc** to release the pointer.
+inside it is first-person: **W A S D** or the **arrow keys** to move, **mouse**
+to look (click once to capture the pointer), **click** to open what the
+crosshair is on, **Esc** to release. After 30s still, the movement keys are
+highlighted.
+
+## Simple view
+
+Not everyone wants a first-person scene. `?flat=1`, a browser without WebGL, or
+the **Simple view** button shows an accessible, keyboard-navigable list of the
+same links. **Enter the Matrix** switches back.
 
 ## License
 

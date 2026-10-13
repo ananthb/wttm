@@ -45,6 +45,15 @@ function filter(catalog, audiences) {
   };
 }
 
+// Which scene a person lands in. The byAudience keys are in priority order
+// (owner first) so a person in several groups gets the most specific one.
+function resolveScene(catalog, audiences) {
+  const scenes = catalog.scenes ?? {};
+  const byAudience = scenes.byAudience ?? {};
+  const match = Object.keys(byAudience).find((a) => audiences.includes(a));
+  return match ? byAudience[match] : scenes.default ?? null;
+}
+
 export async function onRequestGet({ request, env }) {
   const email = (
     request.headers.get("Cf-Access-Authenticated-User-Email") ?? ""
@@ -54,8 +63,10 @@ export async function onRequestGet({ request, env }) {
   const catalog =
     parse(env.WTTM_CATALOG, null) ?? defaultCatalog;
 
+  const audiences = audiencesFor(email, access);
   const body = {
-    ...filter(catalog, audiencesFor(email, access)),
+    ...filter(catalog, audiences),
+    scene: resolveScene(catalog, audiences),
     email: email || null,
   };
 

@@ -522,6 +522,7 @@ viewFlat model =
         , viewHud model
         , viewStatus model
         , viewFlatBody model
+        , div [ class "flat-footer" ] [ viewSignOut model ]
         ]
 
 

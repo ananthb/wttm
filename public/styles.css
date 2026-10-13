@@ -398,6 +398,13 @@ wttm-scene canvas {
   font-size: 0.78rem;
 }
 
+.flat-footer {
+  max-width: 72ch;
+  margin: 0 auto 2.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
 wttm-scene canvas {
   touch-action: none;
 }

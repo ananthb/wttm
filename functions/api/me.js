@@ -64,6 +64,7 @@ export function buildCatalog(env, email) {
   return {
     ...filter(catalog, audiences),
     scene: resolveScene(catalog, audiences),
+    defaultView: catalog.defaultView === "flat" ? "flat" : "three",
     email: email || null,
   };
 }

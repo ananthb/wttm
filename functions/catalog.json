@@ -1,6 +1,7 @@
 {
   "title": "Welcome To The Matrix",
   "subtitle": "This is your last chance. After this, there is no turning back.",
+  "defaultView": "flat",
   "scenes": {
     "default": "downtown",
     "byAudience": [

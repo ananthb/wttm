@@ -15,14 +15,18 @@ function hasWebGL() {
 const params = new URLSearchParams(location.search);
 const touch = "ontouchstart" in window || (navigator.maxTouchPoints ?? 0) > 0;
 
-function initialFlat() {
+// URL override, then the device's remembered choice, then the server default.
+function resolveFlat(serverDefault) {
   if (params.get("flat") === "1") return true;
   if (params.get("flat") === "0") return false;
   try {
-    return localStorage.getItem("wttm.mode") === "flat";
+    const stored = localStorage.getItem("wttm.mode");
+    if (stored === "flat") return true;
+    if (stored === "three") return false;
   } catch {
-    return false;
+    /* ignore */
   }
+  return serverDefault === "flat";
 }
 
 let app = null;
@@ -81,13 +85,15 @@ function setupGyro() {
 }
 
 async function boot() {
+  const webgl = hasWebGL();
   const catalog = await fetchCatalog();
+  const flat = !webgl || resolveFlat(catalog?.defaultView);
 
   app = Elm.Main.init({
     node: document.getElementById("app"),
     flags: {
-      flat: initialFlat(),
-      webgl: hasWebGL(),
+      flat,
+      webgl,
       touch,
       scene: params.get("scene") || null,
       catalog: catalog ? JSON.stringify(catalog) : "",

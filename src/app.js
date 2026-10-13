@@ -49,10 +49,16 @@ document.addEventListener("wttm", (event) => {
 
 async function fetchCatalog() {
   // /api/me returns the public catalog when anonymous and the personal one when
-  // the Access cookie verifies, so one call covers both.
+  // the Access cookie verifies, so one call covers both. The static example is a
+  // fallback if the Function is unreachable (e.g. mid-reconfiguration).
   try {
     const res = await fetch("/api/me", { credentials: "include" });
-    return res.ok ? res.json() : null;
+    if (res.ok) return await res.json();
+  } catch {
+    /* fall through */
+  }
+  try {
+    return await fetch("/catalog.json").then((r) => (r.ok ? r.json() : null));
   } catch {
     return null;
   }

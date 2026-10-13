@@ -25,3 +25,7 @@ await build({
 });
 
 await Promise.all(staticFiles.map((f) => cp(`public/${f}`, `${out}/${f}`)));
+
+// The example catalog is the Function's default and, served statically, the
+// client's fallback when /api/me is unreachable.
+await cp("functions/catalog.json", `${out}/catalog.json`);

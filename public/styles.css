@@ -148,6 +148,24 @@ wttm-scene canvas {
   opacity: 0.6;
 }
 
+.colophon {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem 0.9rem;
+  color: var(--green-dim);
+}
+
+.colophon a {
+  pointer-events: auto;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(77, 255, 158, 0.35);
+}
+
+.colophon .license {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+
 .status {
   position: absolute;
   left: 50%;

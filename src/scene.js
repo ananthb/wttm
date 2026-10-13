@@ -4,7 +4,6 @@ const GREEN = 0x4dff9e;
 const GREEN_DIM = 0x1f7a4d;
 const RED = 0xff3b5c;
 const BLUE = 0x3b7bff;
-const CYAN = 0x6cf0ff;
 
 const ACCENTS = {
   apps: 0x6cf0ff,
@@ -15,12 +14,27 @@ const ACCENTS = {
   build: 0xffd23b,
 };
 
-const TIER_Z = { 0: 0, 1: -6, 2: -12 };
+const TIER_Z = { 0: -4, 1: -9, 2: -14 };
+const EYE_Y = 1.7;
 const CARD_W = 2.0;
 const CARD_H = 1.25;
 const GRID_X = 2.35;
 const GRID_Y = 1.7;
 const GLYPHS = "ｦｧｨｩｪｫｬｭｮｯｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789";
+
+// The opening: over Neo's shoulder, then down to the desk and the pills.
+const ATTRACT_START = new THREE.Vector3(1.05, 2.05, 3.4);
+const ATTRACT_END = new THREE.Vector3(0.4, 1.74, 1.85);
+const ATTRACT_LOOK = new THREE.Vector3(0.1, 1.4, 0.2);
+const GALLERY_START = new THREE.Vector3(0, 1.6, -1);
+const GALLERY_LOOK = new THREE.Vector3(0, 1.6, -9);
+const ATTRACT_ZOOM = 3.5;
+const ENTER_DURATION = 1.7;
+
+// Movement stays small, but covers the whole gallery.
+const BOUNDS = { x: 8.5, zMin: -15.5, zMax: 1.5 };
+const SPEED = 6.5;
+const LOOK = 0.0022;
 
 const reduced =
   typeof matchMedia === "function" &&
@@ -76,7 +90,7 @@ function rainTexture() {
   return tex;
 }
 
-function labelSprite(text, color) {
+function labelSprite(text, color, width = 2.6) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 128;
@@ -93,7 +107,7 @@ function labelSprite(text, color) {
   const sprite = new THREE.Sprite(
     new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })
   );
-  sprite.scale.set(2.6, 0.65, 1);
+  sprite.scale.set(width, width * 0.25, 1);
   return sprite;
 }
 
@@ -155,20 +169,24 @@ function cardTexture(app) {
 class WttmScene extends HTMLElement {
   constructor() {
     super();
-    this.phase = "attract";
+    this.stage = "attract";
     this.catalog = null;
     this.panels = [];
+    this.headers = [];
     this.pills = [];
     this.interactives = [];
     this.hovered = null;
     this.pointer = new THREE.Vector2();
-    this.parallax = new THREE.Vector2();
     this.look = new THREE.Vector2();
-    this.depth = 0;
-    this.drag = null;
-    this.intro = 0;
-    this.visible = false;
+    this.keys = {};
+    this.vel = new THREE.Vector2();
+    this.yaw = 0;
+    this.pitch = 0;
     this.time = 0;
+    this.introT = 0;
+    this.enterT = 0;
+    this.locked = false;
+    this.suppressClick = false;
   }
 
   connectedCallback() {
@@ -186,30 +204,41 @@ class WttmScene extends HTMLElement {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.appendChild(this.renderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(58, 1, 0.1, 200);
-    this.camera.position.set(0, 1.6, 6);
-    this.lookTarget = new THREE.Vector3(0, 1.5, -2);
+    this.camera = new THREE.PerspectiveCamera(62, 1, 0.1, 200);
+    this.camera.position.copy(ATTRACT_START);
 
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x02060a, 0.028);
+    this.scene.fog = new THREE.FogExp2(0x02060a, 0.026);
 
     this.raycaster = new THREE.Raycaster();
     this.clock = new THREE.Clock();
 
     this.buildWorld();
-    this.buildPills();
+    this.buildIntro();
 
     this.onResize = () => this.resize();
     this.onPointerMove = (e) => this.handlePointerMove(e);
     this.onPointerDown = (e) => this.handlePointerDown(e);
     this.onPointerUp = (e) => this.handlePointerUp(e);
-    this.onWheel = (e) => this.handleWheel(e);
+    this.onKeyDown = (e) => {
+      this.keys[e.code] = true;
+    };
+    this.onKeyUp = (e) => {
+      this.keys[e.code] = false;
+    };
+    this.onLockChange = () => {
+      this.locked = document.pointerLockElement === this.renderer.domElement;
+      this.style.cursor = this.locked ? "none" : "default";
+    };
 
     addEventListener("resize", this.onResize);
+    addEventListener("pointerup", this.onPointerUp);
+    addEventListener("keydown", this.onKeyDown);
+    addEventListener("keyup", this.onKeyUp);
+    document.addEventListener("pointerlockchange", this.onLockChange);
     this.addEventListener("pointermove", this.onPointerMove);
     this.addEventListener("pointerdown", this.onPointerDown);
-    addEventListener("pointerup", this.onPointerUp);
-    this.addEventListener("wheel", this.onWheel, { passive: true });
+    this.addEventListener("wheel", (e) => e.preventDefault(), { passive: false });
 
     this.resize();
     this.emit({ type: "ready" });
@@ -224,6 +253,9 @@ class WttmScene extends HTMLElement {
     cancelAnimationFrame(this.raf);
     removeEventListener("resize", this.onResize);
     removeEventListener("pointerup", this.onPointerUp);
+    removeEventListener("keydown", this.onKeyDown);
+    removeEventListener("keyup", this.onKeyUp);
+    document.removeEventListener("pointerlockchange", this.onLockChange);
     if (this.renderer) {
       this.renderer.dispose();
       this.renderer = null;
@@ -247,10 +279,9 @@ class WttmScene extends HTMLElement {
   }
 
   buildWorld() {
-    const ambient = new THREE.AmbientLight(0x223a2c, 1.4);
-    this.scene.add(ambient);
+    this.scene.add(new THREE.AmbientLight(0x223a2c, 1.4));
 
-    const key = new THREE.PointLight(GREEN, 18, 60);
+    const key = new THREE.PointLight(GREEN, 16, 60);
     key.position.set(0, 6, -4);
     this.scene.add(key);
 
@@ -258,21 +289,19 @@ class WttmScene extends HTMLElement {
     const rainMat = new THREE.MeshBasicMaterial({
       map: this.rain,
       transparent: true,
-      opacity: 0.32,
+      opacity: 0.3,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
     const rainPlane = new THREE.Mesh(new THREE.PlaneGeometry(140, 70), rainMat);
     rainPlane.position.set(0, 8, -30);
     this.scene.add(rainPlane);
-    this.rainPlane = rainPlane;
 
     const grid = new THREE.GridHelper(120, 60, GREEN_DIM, 0x0a2a1c);
     grid.material.transparent = true;
-    grid.material.opacity = 0.28;
+    grid.material.opacity = 0.26;
     grid.position.y = -2;
     this.scene.add(grid);
-    this.grid = grid;
 
     const count = 900;
     const positions = new Float32Array(count * 3);
@@ -283,45 +312,109 @@ class WttmScene extends HTMLElement {
     }
     const pgeo = new THREE.BufferGeometry();
     pgeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    const pmat = new THREE.PointsMaterial({
-      color: GREEN,
-      size: 0.06,
-      transparent: true,
-      opacity: 0.7,
-      depthWrite: false,
-    });
-    this.scene.add(new THREE.Points(pgeo, pmat));
+    this.scene.add(
+      new THREE.Points(
+        pgeo,
+        new THREE.PointsMaterial({
+          color: GREEN,
+          size: 0.06,
+          transparent: true,
+          opacity: 0.7,
+          depthWrite: false,
+        })
+      )
+    );
   }
 
-  buildPills() {
-    this.pills = [
-      this.makePill(RED, "red", -1.5),
-      this.makePill(BLUE, "blue", 1.5),
+  buildIntro() {
+    const group = new THREE.Group();
+    this.introGroup = group;
+
+    const dark = new THREE.MeshStandardMaterial({ color: 0x0b1418, roughness: 0.85, metalness: 0.1 });
+    const deskMat = new THREE.MeshStandardMaterial({ color: 0x0e1a1c, roughness: 1 });
+
+    const desk = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.08, 1.2), deskMat);
+    desk.position.set(0, 1.0, 0.35);
+    group.add(desk);
+    for (const lx of [-1.45, 1.45]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.0, 1.0), dark);
+      leg.position.set(lx, 0.5, 0.35);
+      group.add(leg);
+    }
+
+    const monitor = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.0, 0.1), dark);
+    monitor.position.set(0, 1.55, 0.0);
+    group.add(monitor);
+    const stand = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.55, 0.2), dark);
+    stand.position.set(0, 1.28, 0.02);
+    group.add(stand);
+
+    const screenCanvas = document.createElement("canvas");
+    screenCanvas.width = 512;
+    screenCanvas.height = 340;
+    const sctx = screenCanvas.getContext("2d");
+    sctx.fillStyle = "#020806";
+    sctx.fillRect(0, 0, 512, 340);
+    sctx.font = "22px monospace";
+    sctx.fillStyle = "#4dff9e";
+    const lines = [
+      "> wake up, neo...",
+      "> the matrix has you",
+      "> follow the white rabbit",
+      "> knock, knock, neo.",
     ];
+    lines.forEach((line, i) => sctx.fillText(line, 28, 70 + i * 46));
+    const screenTex = new THREE.CanvasTexture(screenCanvas);
+    screenTex.colorSpace = THREE.SRGBColorSpace;
+    const screen = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.34, 0.86),
+      new THREE.MeshBasicMaterial({ map: screenTex })
+    );
+    screen.position.set(0, 1.55, 0.06);
+    group.add(screen);
+    const screenGlow = new THREE.PointLight(GREEN, 3, 6);
+    screenGlow.position.set(0, 1.5, 0.6);
+    group.add(screenGlow);
+
+    const figure = new THREE.Group();
+    figure.position.set(0, 0, 1.25);
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.5, 12, 20), dark);
+    torso.position.set(0, 1.0, 0);
+    figure.add(torso);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 24, 24), dark);
+    head.position.set(0, 1.52, -0.04);
+    figure.add(head);
+    group.add(figure);
+
+    this.scene.add(group);
+
+    this.pills = [this.makePill(RED, "red", -0.72), this.makePill(BLUE, "blue", 0.72)];
+    for (const pill of this.pills) group.add(pill.group);
+    this.pillsGroup = group;
   }
 
   makePill(color, id, x) {
     const group = new THREE.Group();
-    group.position.set(x, 1.25, 0);
+    group.position.set(x, 1.16, 0.62);
 
-    const geo = new THREE.CapsuleGeometry(0.26, 0.5, 12, 24);
     const mat = new THREE.MeshStandardMaterial({
       color,
       emissive: color,
-      emissiveIntensity: 0.75,
+      emissiveIntensity: 0.8,
       roughness: 0.28,
       metalness: 0.4,
       transparent: true,
     });
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.44, 12, 24), mat);
     mesh.rotation.z = Math.PI / 2;
+    mesh.userData = { kind: "pill", id };
     group.add(mesh);
 
-    const glow = new THREE.PointLight(color, 6, 8);
+    const glow = new THREE.PointLight(color, 5, 7);
     group.add(glow);
 
     const halo = new THREE.Mesh(
-      new THREE.SphereGeometry(0.7, 24, 24),
+      new THREE.SphereGeometry(0.62, 24, 24),
       new THREE.MeshBasicMaterial({
         color,
         transparent: true,
@@ -332,24 +425,24 @@ class WttmScene extends HTMLElement {
     );
     group.add(halo);
 
-    const label = labelSprite(id.toUpperCase() + " PILL", color);
-    label.position.set(0, -0.75, 0);
+    const label = labelSprite(id.toUpperCase() + " PILL", color, 2.2);
+    label.position.set(0, -0.62, 0);
     group.add(label);
 
-    mesh.userData = { kind: "pill", id };
     this.interactives.push(mesh);
-    this.scene.add(group);
-    return { group, mesh, halo, label, glow, id };
+    return { group, mesh, halo, label, id };
   }
 
   buildPanels() {
-    for (const p of this.panels) {
-      this.scene.remove(p.group);
-      p.mesh.geometry.dispose();
-      p.mesh.material.map?.dispose();
-      p.mesh.material.dispose();
+    for (const panel of this.panels) {
+      this.scene.remove(panel.mesh);
+      panel.mesh.geometry.dispose();
+      panel.mesh.material.map?.dispose();
+      panel.mesh.material.dispose();
     }
+    for (const header of this.headers) this.scene.remove(header);
     this.panels = [];
+    this.headers = [];
     this.interactives = this.pills.map((p) => p.mesh);
     if (!this.catalog) return;
 
@@ -367,20 +460,20 @@ class WttmScene extends HTMLElement {
         const cols = apps.length <= 1 ? 1 : apps.length <= 4 ? 2 : 3;
         const rows = Math.ceil(apps.length / cols);
         const gridW = cols * GRID_X;
-        const gridH = rows * GRID_Y;
         const cx = (ci - (categories.length - 1) / 2) * (gridW + 2.6);
-
         const accent = ACCENTS[category.id] ?? GREEN;
-        const header = labelSprite(category.label.toUpperCase(), accent);
-        header.position.set(cx, 0.95 + (rows / 2) * GRID_Y + 0.55, z);
-        header.userData = { kind: "header" };
+
+        const header = labelSprite(category.label.toUpperCase(), accent, 3.0);
+        header.position.set(cx, EYE_Y + (rows / 2) * GRID_Y + 0.7, z);
+        header.visible = false;
         this.scene.add(header);
+        this.headers.push(header);
 
         apps.forEach((app, i) => {
           const col = i % cols;
           const row = (i / cols) | 0;
           const x = cx + (col - (cols - 1) / 2) * GRID_X;
-          const y = 0.95 + ((rows - 1) / 2 - row) * GRID_Y;
+          const y = EYE_Y + ((rows - 1) / 2 - row) * GRID_Y;
           const mesh = this.makeCard(app, accent);
           mesh.position.set(x, y, z);
           mesh.scale.setScalar(0.001);
@@ -393,39 +486,39 @@ class WttmScene extends HTMLElement {
           mesh.add(ring);
           this.scene.add(mesh);
           this.interactives.push(mesh);
-          this.panels.push({ group: mesh, mesh, ring, base: { x, y, z }, appId: app.id });
+          this.panels.push({ mesh, ring, base: { x, y, z }, appId: app.id });
         });
       });
     }
   }
 
   makeCard(app, accent) {
-    const geo = new THREE.PlaneGeometry(CARD_W, CARD_H);
-    const mat = new THREE.MeshBasicMaterial({
-      map: cardTexture(app),
-      transparent: true,
-      side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(CARD_W, CARD_H),
+      new THREE.MeshBasicMaterial({ map: cardTexture(app), transparent: true, side: THREE.DoubleSide })
+    );
     mesh.userData = { accent, appId: app.id };
     return mesh;
   }
 
   enter() {
-    if (this.phase === "inside") return;
-    this.phase = "inside";
-    this.intro = 1;
-    for (const panel of this.panels) {
-      panel.mesh.visible = true;
-      panel.mesh.scale.setScalar(0.001);
-    }
+    if (this.stage === "inside" || this.stage === "entering") return;
+    this.stage = "entering";
+    this.enterT = 0;
+    this.introGroup.visible = false;
+    this.emit({ type: "entered" });
   }
 
   reset() {
-    this.phase = "attract";
-    this.intro = 0;
-    for (const pill of this.pills) pill.group.visible = true;
+    this.stage = "attract";
+    this.introT = 0;
+    this.enterT = 0;
+    this.introGroup.visible = true;
     for (const panel of this.panels) panel.mesh.visible = false;
+    for (const header of this.headers) header.visible = false;
+    for (const pill of this.pills) pill.group.visible = true;
+    this.camera.position.copy(ATTRACT_START);
+    if (this.locked) document.exitPointerLock();
   }
 
   resize() {
@@ -438,52 +531,47 @@ class WttmScene extends HTMLElement {
   }
 
   handlePointerMove(e) {
+    if (this.locked) {
+      this.yaw -= e.movementX * LOOK;
+      this.pitch = clamp(this.pitch - e.movementY * LOOK, -0.9, 0.9);
+      return;
+    }
     const rect = this.getBoundingClientRect();
-    const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const ny = ((e.clientY - rect.top) / rect.height) * 2 - 1;
-    this.pointer.set(nx, -ny);
-    if (!reduced) {
-      this.parallax.set(nx * 0.7, -ny * 0.4);
-    }
-    if (this.drag) {
-      const dx = e.clientX - this.drag.x;
-      const dy = e.clientY - this.drag.y;
-      this.look.set(
-        clamp(this.drag.lx + dx * 0.0016, -0.22, 0.22),
-        clamp(this.drag.ly - dy * 0.0016, -0.16, 0.16)
-      );
-    }
+    this.pointer.set(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -(((e.clientY - rect.top) / rect.height) * 2 - 1)
+    );
   }
 
-  handlePointerDown(e) {
-    this.drag = { x: e.clientX, y: e.clientY, lx: this.look.x, ly: this.look.y, moved: 0 };
+  handlePointerDown() {
+    if (this.stage === "inside" && !this.locked) {
+      this.renderer.domElement.requestPointerLock();
+      this.suppressClick = true;
+    }
   }
 
   handlePointerUp(e) {
-    if (!this.drag) return;
-    const moved = Math.hypot(e.clientX - this.drag.x, e.clientY - this.drag.y);
-    this.drag = null;
-    if (moved > 8) return;
+    if (this.suppressClick) {
+      this.suppressClick = false;
+      return;
+    }
     const hit = this.pick();
     if (!hit) return;
     if (hit.userData.kind === "pill") {
+      if (hit.userData.id === "red") this.renderer.domElement.requestPointerLock();
       this.emit({ type: "pill", pill: hit.userData.id });
-    } else if (hit.userData.kind === "app") {
-      if (this.phase === "inside") this.emit({ type: "open", id: hit.userData.id });
+    } else if (hit.userData.kind === "app" && this.stage === "inside") {
+      this.emit({ type: "open", id: hit.userData.id });
     }
   }
 
-  handleWheel(e) {
-    if (this.phase !== "inside") return;
-    this.depth = clamp(this.depth + e.deltaY * 0.0012, -1, 1);
-  }
-
   pick() {
-    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const ndc = this.locked ? new THREE.Vector2(0, 0) : this.pointer;
+    this.raycaster.setFromCamera(ndc, this.camera);
     const hits = this.raycaster.intersectObjects(this.interactives, false);
     for (const hit of hits) {
-      // Raycaster ignores an object's ancestors, so a card hidden inside an
-      // invisible group would still be picked without this walk.
+      // Raycaster ignores ancestors, so a card in an invisible group would
+      // still be picked without this walk.
       let node = hit.object;
       let shown = true;
       while (node) {
@@ -501,19 +589,18 @@ class WttmScene extends HTMLElement {
   frame() {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.time += dt;
-
     if (this.rain) this.rain.offset.y -= dt * 0.35;
 
     const hit = this.pick();
-    const hitId = hit ? hit.userData.id ?? hit.userData.appId : null;
+    const hitId = hit ? hit.userData.id : null;
     if (hitId !== this.hovered) {
       this.hovered = hitId;
-      this.style.cursor = hitId ? "pointer" : "default";
+      if (!this.locked) this.style.cursor = hitId ? "pointer" : "default";
       if (hitId) this.emit({ type: "hover", id: hitId });
     }
 
     this.animatePills(dt);
-    this.animatePanels(dt, hit);
+    this.animateStage(dt, hit);
     this.animateCamera(dt);
 
     this.renderer.render(this.scene, this.camera);
@@ -521,56 +608,91 @@ class WttmScene extends HTMLElement {
 
   animatePills(dt) {
     for (const pill of this.pills) {
-      const visible = this.phase === "attract";
-      pill.group.visible = visible;
-      if (!visible) continue;
-      pill.group.position.y = 1.25 + Math.sin(this.time * 1.6 + (pill.id === "red" ? 0 : 1.5)) * 0.12;
+      if (this.stage !== "attract") continue;
+      pill.group.position.y = 1.16 + Math.sin(this.time * 1.6 + (pill.id === "red" ? 0 : 1.5)) * 0.07;
       pill.group.rotation.y += dt * 0.6;
       const hot = this.hovered === pill.id;
-      const target = hot ? 1.18 : 1;
+      const target = hot ? 1.16 : 1;
       pill.group.scale.setScalar(lerp(pill.group.scale.x, target, 0.15));
       pill.mesh.material.emissiveIntensity = lerp(
         pill.mesh.material.emissiveIntensity,
-        hot ? 1.4 : 0.75,
+        hot ? 1.5 : 0.8,
         0.15
       );
       pill.halo.material.opacity = lerp(pill.halo.material.opacity, hot ? 0.28 : 0.12, 0.15);
     }
   }
 
-  animatePanels(dt, hit) {
-    this.intro = clamp(this.intro - dt * 0.7, 0, 1);
-    const reveal = 1 - easeOut(this.intro);
+  animateStage(dt, hit) {
+    if (this.stage === "entering") {
+      this.enterT = clamp(this.enterT + dt / ENTER_DURATION, 0, 1);
+      const reveal = clamp((this.enterT - 0.35) / 0.65, 0, 1);
+      for (const header of this.headers) header.visible = reveal > 0;
+      for (const panel of this.panels) {
+        panel.mesh.visible = reveal > 0;
+        panel.mesh.scale.setScalar(Math.max(0.001, easeOut(reveal)));
+      }
+      if (this.enterT >= 1) this.stage = "inside";
+    }
+    if (this.stage !== "inside") return;
     for (const panel of this.panels) {
       const { mesh, ring, base } = panel;
       mesh.quaternion.copy(this.camera.quaternion);
       const hot = hit === mesh;
-      const bob = Math.sin(this.time * 1.1 + base.x * 1.7) * 0.05;
-      mesh.position.y = base.y + bob;
-      const target = hot ? 1.12 : 1;
-      mesh.scale.setScalar(lerp(mesh.scale.x, target * reveal, 0.12));
+      mesh.position.y = base.y + Math.sin(this.time * 1.1 + base.x * 1.7) * 0.05;
+      mesh.scale.setScalar(lerp(mesh.scale.x, hot ? 1.12 : 1, 0.12));
       ring.material.opacity = lerp(ring.material.opacity, hot ? 0.9 : 0, 0.15);
     }
   }
 
   animateCamera(dt) {
-    const bob = reduced ? 0 : Math.sin(this.time * 0.8) * 0.03;
-    const rush = this.intro * -3;
-    const targetX = this.parallax.x * 0.5;
-    const targetY = 1.6 + this.parallax.y * 0.35 + bob;
-    const targetZ = 6 - this.depth * 4.5 + rush;
+    if (this.stage === "attract") {
+      this.introT = clamp(this.introT + dt / ATTRACT_ZOOM, 0, 1);
+      const t = easeOut(this.introT);
+      const sway = reduced ? 0 : Math.sin(this.time * 0.7) * 0.04;
+      this.camera.position.lerpVectors(ATTRACT_START, ATTRACT_END, t);
+      this.camera.position.y += sway;
+      this.camera.lookAt(ATTRACT_LOOK);
+      return;
+    }
 
-    this.camera.position.x = lerp(this.camera.position.x, targetX, 0.06);
-    this.camera.position.y = lerp(this.camera.position.y, targetY, 0.06);
-    this.camera.position.z = lerp(this.camera.position.z, targetZ, 0.06);
+    if (this.stage === "entering") {
+      const t = easeOut(this.enterT);
+      this.camera.position.lerpVectors(ATTRACT_END, GALLERY_START, t);
+      const look = ATTRACT_LOOK.clone().lerp(GALLERY_LOOK, t);
+      this.camera.lookAt(look);
+      return;
+    }
 
-    const yaw = this.look.x + this.parallax.x * 0.04;
-    const pitch = this.look.y + this.parallax.y * 0.04;
-    this.camera.lookAt(
-      this.lookTarget.x + yaw * 8,
-      this.lookTarget.y + pitch * 8,
-      this.lookTarget.z
+    this.move(dt);
+  }
+
+  move(dt) {
+    const forward = (this.keys.KeyW ? 1 : 0) - (this.keys.KeyS ? 1 : 0);
+    const strafe = (this.keys.KeyD ? 1 : 0) - (this.keys.KeyA ? 1 : 0);
+    const sin = Math.sin(this.yaw);
+    const cos = Math.cos(this.yaw);
+
+    const ax = (-sin * forward + cos * strafe) * SPEED;
+    const az = (-cos * forward - sin * strafe) * SPEED;
+
+    this.vel.x = lerp(this.vel.x, ax, 0.18);
+    this.vel.y = lerp(this.vel.y, az, 0.18);
+
+    this.camera.position.x = clamp(
+      this.camera.position.x + this.vel.x * dt,
+      -BOUNDS.x,
+      BOUNDS.x
     );
+    this.camera.position.z = clamp(
+      this.camera.position.z + this.vel.y * dt,
+      BOUNDS.zMin,
+      BOUNDS.zMax
+    );
+
+    const bob = reduced ? 0 : Math.sin(this.time * 8) * Math.min(0.04, Math.hypot(this.vel.x, this.vel.y) * 0.006);
+    this.camera.position.y = 1.6 + bob;
+    this.camera.quaternion.setFromEuler(new THREE.Euler(this.pitch, this.yaw, 0, "YXZ"));
   }
 }
 

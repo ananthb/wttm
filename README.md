@@ -37,6 +37,13 @@ npm run dev        # build, then wrangler pages dev dist
 
 Cloudflare Pages runs `npm run build` and serves `dist/` with `functions/`.
 
+## Controls
+
+The opening zooms in over Neo's shoulder to the desk; click the red pill. Once
+inside, it is a first-person scene: **W A S D** to move (a little), **mouse** to
+look (click once to capture the pointer), **click** to open what the crosshair
+is on, **Esc** to release the pointer.
+
 ## License
 
 AGPL-3.0-only. See [LICENSE](LICENSE).

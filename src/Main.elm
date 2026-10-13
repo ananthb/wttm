@@ -122,6 +122,9 @@ update msg model =
                         SceneReady ->
                             ( model, Cmd.none )
 
+                        Entered ->
+                            ( { model | phase = Inside }, Cmd.none )
+
                 Err _ ->
                     ( model, Cmd.none )
 
@@ -185,10 +188,24 @@ viewOverlay : Model -> Html Msg
 viewOverlay model =
     div [ class "overlay" ]
         [ viewHud model
+        , viewCrosshair model
         , viewStatus model
         , viewFooter model
         , viewBlue model
         ]
+
+
+viewCrosshair : Model -> Html Msg
+viewCrosshair model =
+    case model.phase of
+        Entering ->
+            div [ class "crosshair" ] []
+
+        Inside ->
+            div [ class "crosshair" ] []
+
+        _ ->
+            text ""
 
 
 viewHud : Model -> Html Msg
@@ -238,12 +255,20 @@ viewFooter model =
         Blue ->
             text ""
 
+        Attract ->
+            div [ class "footer" ]
+                [ div [ class "keys" ]
+                    [ span [] [ text "choose a pill to wake up" ] ]
+                , span [ class "brand" ] [ text "wttm" ]
+                ]
+
         _ ->
             div [ class "footer" ]
                 [ div [ class "keys" ]
-                    [ span [] [ kbd [] [ text "drag" ], text " look" ]
-                    , span [] [ kbd [] [ text "wheel" ], text " move" ]
-                    , span [] [ kbd [] [ text "click" ], text " enter" ]
+                    [ span [] [ kbd [] [ text "W A S D" ], text " move" ]
+                    , span [] [ kbd [] [ text "mouse" ], text " look" ]
+                    , span [] [ kbd [] [ text "click" ], text " open" ]
+                    , span [] [ kbd [] [ text "Esc" ], text " release" ]
                     ]
                 , span [ class "brand" ] [ text "wttm" ]
                 ]
@@ -306,6 +331,7 @@ type SceneEvent
     | Open String
     | Hovered String
     | SceneReady
+    | Entered
 
 
 sceneDecoder : D.Decoder SceneEvent
@@ -325,6 +351,9 @@ sceneDecoder =
 
                     "ready" ->
                         D.succeed SceneReady
+
+                    "entered" ->
+                        D.succeed Entered
 
                     _ ->
                         D.fail ("unknown scene event: " ++ kind)

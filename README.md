@@ -12,20 +12,25 @@ Elm owns the page and the state machine. A `<wttm-scene>` web component owns the
 
 | Layer | What it does |
 |---|---|
-| `src/Main.elm` | The single-page app: fetches the catalog, runs the pill/enter/inside state machine, drives the scene over the `toScene` port, opens links on `openUrl` |
-| `src/scene.js` | The `wttm-scene` custom element: room, matrix rain, pills, the floating app cards, camera and raycasting |
-| `src/app.js` | Glue: defines the element, boots Elm, connects the ports |
-| `functions/api/me.js` | Pages Function that returns the signed-in user's catalog |
+| `src/Main.elm` | The single-page app: runs the pill/enter/inside state machine, drives the scene over `toScene`, opens links on `openUrl`, and handles simple mode |
+| `src/three/scenes.js` | The scene library: six environments, each with its own look and a signature interactive prop |
+| `src/scene.js` | The `wttm-scene` custom element: the intro, pills, floating app cards, camera, raycasting and input |
+| `src/app.js` | Glue: loads the catalog, defines the element, boots Elm, connects the ports |
+| `functions/api/me.js` | Pages Function: returns the catalog, personal when the Access cookie verifies |
+| `functions/login.js` | The Access-protected path that starts the login flow |
 
 ## Who sees what
 
-Cloudflare Access puts `Cf-Access-Authenticated-User-Email` on every request.
-The function reads it, looks the email up in `WTTM_ACCESS` (email → audiences,
-injected by the platform, never committed here), and returns the apps whose
-audience the user is in. `WTTM_CATALOG` holds the real catalog. Both are absent
-in a clone, so a visitor gets the example catalog in `functions/catalog.json`.
+The site is public. `/api/me` returns the `everyone` catalog to a visitor, and
+the personal one when the request carries a `CF_Authorization` cookie the
+Function can verify against the Access team certs (`WTTM_TEAM_DOMAIN`). Logging
+in happens at `/login`, the one Access-protected path.
 
-No emails and no infra hostnames ever live in this repository.
+The personal side is `WTTM_ACCESS` (email → audiences) and `WTTM_CATALOG` (the
+apps, each tagged with the audiences that may see it), injected by the platform
+and never committed here. Both are absent in a clone, so a visitor gets the
+example catalog in `functions/catalog.json`. No emails and no infra hostnames
+live in this repository.
 
 ## Build
 
@@ -65,11 +70,16 @@ to look (click once to capture the pointer), **click** to open what the
 crosshair is on, **Esc** to release. After 30s still, the movement keys are
 highlighted.
 
+On a touch device: **drag** to look, **tap** to open, the on-screen **pad** to
+move, and **enable tilt** to look with the gyroscope. A **LOG IN** panel sits
+dead-ahead until you sign in.
+
 ## Simple view
 
 Not everyone wants a first-person scene. `?flat=1`, a browser without WebGL, or
 the **Simple view** button shows an accessible, keyboard-navigable list of the
-same links. **Enter the Matrix** switches back.
+same links. **Enter the Matrix** switches back, and the choice is remembered on
+the device.
 
 ## License
 

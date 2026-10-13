@@ -2,7 +2,7 @@ import * as THREE from "three";
 import * as util from "./three/util.js";
 import { getScene } from "./three/scenes.js";
 
-const { GREEN, RED, BLUE, ACCENTS, clamp, lerp, easeOut, makeCard, labelSprite, rainTexture, box } = util;
+const { GREEN, RED, BLUE, ACCENTS, clamp, lerp, easeOut, makeCard, makeLoginPanel, labelSprite, rainTexture, box } = util;
 
 // The opening is fixed: over Neo's shoulder, down to his desk and the pills.
 const ATTRACT_START = new THREE.Vector3(1.15, 2.1, 3.5);
@@ -42,6 +42,11 @@ class WttmScene extends HTMLElement {
     this.locked = false;
     this.suppressClick = false;
     this.lastActive = -1;
+    this.loggedIn = false;
+    this.loginPanel = null;
+    this.touchDrag = null;
+    this.gyroEnabled = false;
+    this.gyroBase = null;
   }
 
   connectedCallback() {
@@ -73,7 +78,7 @@ class WttmScene extends HTMLElement {
 
     this.onResize = () => this.resize();
     this.onPointerMove = (e) => this.handlePointerMove(e);
-    this.onPointerDown = () => this.handlePointerDown();
+    this.onPointerDown = (e) => this.handlePointerDown(e);
     this.onPointerUp = (e) => this.handlePointerUp(e);
     this.onKeyDown = (e) => {
       this.keys[e.code] = true;
@@ -140,6 +145,12 @@ class WttmScene extends HTMLElement {
     } else if (msg.type === "scene") {
       this.sceneId = msg.id;
       if (this.stage === "inside" || this.stage === "entering") this.loadScene(this.sceneId);
+    } else if (msg.type === "auth") {
+      this.loggedIn = !!msg.loggedIn;
+      if (this.stage === "inside" || this.stage === "entering") this.loadScene(this.sceneId);
+    } else if (msg.type === "input") {
+      this.keys[msg.key] = !!msg.down;
+      if (msg.down) this.active();
     } else if (msg.type === "enter") {
       this.enter();
     } else if (msg.type === "reset") {
@@ -253,6 +264,13 @@ class WttmScene extends HTMLElement {
     for (const header of this.headers) this.scene.remove(header);
     this.panels = [];
     this.headers = [];
+    if (this.loginPanel) {
+      this.scene.remove(this.loginPanel);
+      this.loginPanel.geometry.dispose();
+      this.loginPanel.material.map?.dispose();
+      this.loginPanel.material.dispose();
+      this.loginPanel = null;
+    }
     if (this.env) {
       this.scene.remove(this.env);
       this.env.traverse((o) => {
@@ -299,6 +317,19 @@ class WttmScene extends HTMLElement {
       this.interactives.push(mesh);
       this.panels.push({ mesh, ring, base: { x: p.x, y: p.y, z: p.z } });
     }
+
+    if (!this.loggedIn) this.addLoginPanel();
+  }
+
+  addLoginPanel() {
+    const panel = makeLoginPanel("See everything you can reach");
+    const spawn = this.def.spawn;
+    panel.position.set(0, spawn[1], spawn[2] - 2.6);
+    panel.scale.setScalar(0.001);
+    panel.userData = { kind: "login", id: "login" };
+    this.scene.add(panel);
+    this.interactives.push(panel);
+    this.loginPanel = panel;
   }
 
   enter() {
@@ -336,22 +367,41 @@ class WttmScene extends HTMLElement {
     this.camera.updateProjectionMatrix();
   }
 
+  setPointerFrom(e) {
+    const rect = this.getBoundingClientRect();
+    this.pointer.set(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -(((e.clientY - rect.top) / rect.height) * 2 - 1)
+    );
+  }
+
   handlePointerMove(e) {
     if (this.locked) {
       this.yaw -= e.movementX * LOOK;
       this.pitch = clamp(this.pitch - e.movementY * LOOK, -1.15, 1.15);
+    } else if (e.pointerType === "touch" && this.touchDrag) {
+      const dx = e.clientX - this.touchDrag.x;
+      const dy = e.clientY - this.touchDrag.y;
+      this.touchDrag.x = e.clientX;
+      this.touchDrag.y = e.clientY;
+      this.touchDrag.moved += Math.hypot(dx, dy);
+      this.yaw -= dx * 0.005;
+      this.pitch = clamp(this.pitch - dy * 0.005, -1.15, 1.15);
+      this.setPointerFrom(e);
     } else {
-      const rect = this.getBoundingClientRect();
-      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      const ny = ((e.clientY - rect.top) / rect.height) * 2 - 1;
-      this.pointer.set(nx, -ny);
-      this.yaw = -nx * 1.1;
-      this.pitch = clamp(-ny * 0.6, -0.7, 0.7);
+      this.setPointerFrom(e);
+      this.yaw = -this.pointer.x * 1.1;
+      this.pitch = clamp(this.pointer.y * 0.6, -0.7, 0.7);
     }
     this.active();
   }
 
-  handlePointerDown() {
+  handlePointerDown(e) {
+    if (e.pointerType === "touch") {
+      this.touchDrag = { x: e.clientX, y: e.clientY, moved: 0 };
+      this.setPointerFrom(e);
+      return;
+    }
     if (this.stage === "inside" && !this.locked) {
       this.renderer.domElement.requestPointerLock();
       this.suppressClick = true;
@@ -363,6 +413,9 @@ class WttmScene extends HTMLElement {
       this.suppressClick = false;
       return;
     }
+    const dragged = this.touchDrag && this.touchDrag.moved > 12;
+    this.touchDrag = null;
+    if (dragged) return;
     const hit = this.pick();
     if (!hit) return;
     const kind = hit.userData.kind;
@@ -371,9 +424,24 @@ class WttmScene extends HTMLElement {
       this.emit({ type: "pill", pill: hit.userData.id });
     } else if (kind === "app" && this.stage === "inside") {
       this.emit({ type: "open", id: hit.userData.id });
+    } else if (kind === "login") {
+      this.emit({ type: "login" });
     } else if (kind === "prop") {
       this.emit({ type: "note", text: hit.userData.text });
     }
+  }
+
+  gyro(alpha, beta) {
+    if (alpha == null || beta == null) return;
+    if (!this.gyroEnabled || !this.gyroBase) {
+      this.gyroEnabled = true;
+      this.gyroBase = { alpha, beta };
+      return;
+    }
+    const wrap = (d) => ((d + 540) % 360) - 180;
+    const da = wrap(alpha - this.gyroBase.alpha);
+    this.yaw = -(da * Math.PI) / 180;
+    this.pitch = clamp((((beta - this.gyroBase.beta) * Math.PI) / 180) * 0.6, -1.0, 1.0);
   }
 
   pick() {
@@ -438,6 +506,10 @@ class WttmScene extends HTMLElement {
         panel.mesh.visible = reveal > 0;
         panel.mesh.scale.setScalar(Math.max(0.001, easeOut(reveal)));
       }
+      if (this.loginPanel) {
+        this.loginPanel.visible = reveal > 0;
+        this.loginPanel.scale.setScalar(Math.max(0.001, easeOut(reveal)));
+      }
       if (this.enterT >= 1) this.stage = "inside";
     }
     if (this.stage !== "inside") return;
@@ -448,6 +520,11 @@ class WttmScene extends HTMLElement {
       mesh.position.y = base.y + Math.sin(this.time * 1.1 + base.x * 1.7) * 0.05;
       mesh.scale.setScalar(lerp(mesh.scale.x, hot ? 1.1 : 1, 0.12));
       ring.material.opacity = lerp(ring.material.opacity, hot ? 0.9 : 0, 0.15);
+    }
+    if (this.loginPanel) {
+      this.loginPanel.quaternion.copy(this.camera.quaternion);
+      const target = hit === this.loginPanel ? 1.08 : 1;
+      this.loginPanel.scale.setScalar(lerp(this.loginPanel.scale.x, target, 0.12));
     }
     if (this.def?.animate) this.def.animate(dt, this.time);
   }

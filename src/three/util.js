@@ -184,6 +184,61 @@ export function makeCard(app, accent) {
   );
 }
 
+export function loginTexture(subtitle) {
+  const w = 640;
+  const h = 400;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  const bg = ctx.createLinearGradient(0, 0, 0, h);
+  bg.addColorStop(0, "rgba(6,30,34,0.97)");
+  bg.addColorStop(1, "rgba(2,10,14,0.97)");
+  ctx.fillStyle = bg;
+  roundedRect(ctx, 6, 6, w - 12, h - 12, 30);
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = colorToCss(CYAN);
+  roundedRect(ctx, 6, 6, w - 12, h - 12, 30);
+  ctx.stroke();
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = colorToCss(CYAN);
+  ctx.shadowBlur = 24;
+  ctx.fillStyle = "#eafffb";
+  ctx.font = "700 92px monospace";
+  ctx.fillText("LOG IN", w / 2, 160);
+
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "rgba(150,220,235,0.9)";
+  ctx.font = "30px monospace";
+  ctx.fillText(subtitle, w / 2, 250);
+
+  ctx.strokeStyle = colorToCss(CYAN);
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - 90, 300);
+  ctx.lineTo(w / 2 + 90, 300);
+  ctx.stroke();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+export function makeLoginPanel(subtitle) {
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.0, 1.8),
+    new THREE.MeshBasicMaterial({
+      map: loginTexture(subtitle),
+      transparent: true,
+      side: THREE.DoubleSide,
+    })
+  );
+  return mesh;
+}
+
 // Categories in tiers; every entry is placed so the whole catalog is present
 // and reachable. A scene tunes depth, height and arc.
 export function layoutCatalog(catalog, opts = {}) {

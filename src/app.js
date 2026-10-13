@@ -12,11 +12,28 @@ function hasWebGL() {
   }
 }
 
+const params = new URLSearchParams(location.search);
+const touch = "ontouchstart" in window || (navigator.maxTouchPoints ?? 0) > 0;
+
+function initialFlat() {
+  if (params.get("flat") === "1") return true;
+  if (params.get("flat") === "0") return false;
+  try {
+    return localStorage.getItem("wttm.mode") === "flat";
+  } catch {
+    return false;
+  }
+}
+
 let app = null;
 const pending = [];
 
+function sceneEl() {
+  return document.querySelector("wttm-scene");
+}
+
 function forward(msg) {
-  const scene = document.querySelector("wttm-scene");
+  const scene = sceneEl();
   if (scene && scene.send) scene.send(msg);
   else {
     pending.push(msg);
@@ -25,34 +42,86 @@ function forward(msg) {
 }
 
 // The scene bubbles a CustomEvent on itself; Elm port messages come back down
-// through toScene. Wiring happens before init so the port subscribers exist.
+// through toScene.
 document.addEventListener("wttm", (event) => {
   if (app) app.ports.fromScene.send(event.detail);
 });
 
-const params = new URLSearchParams(location.search);
-
-app = Elm.Main.init({
-  node: document.getElementById("app"),
-  flags: {
-    flat: params.has("flat"),
-    webgl: hasWebGL(),
-    scene: params.get("scene") || null,
-  },
-});
-
-app.ports.toScene.subscribe(forward);
-app.ports.openUrl.subscribe((url) =>
-  window.open(url, "_blank", "noopener,noreferrer")
-);
-
-const flush = () => {
-  const scene = document.querySelector("wttm-scene");
-  if (scene && scene.send && pending.length) {
-    for (const msg of pending.splice(0)) scene.send(msg);
+async function fetchCatalog() {
+  let catalog = null;
+  try {
+    catalog = await fetch("/api/public").then((r) => (r.ok ? r.json() : null));
+  } catch {
+    catalog = null;
   }
-};
-new MutationObserver(flush).observe(document.getElementById("app"), {
-  childList: true,
-  subtree: true,
-});
+  // /api/me is behind Access; an anonymous fetch is an opaque redirect, so this
+  // only succeeds once the visitor has logged in.
+  try {
+    const res = await fetch("/api/me", { redirect: "manual", credentials: "include" });
+    if (res && res.ok) catalog = await res.json();
+  } catch {
+    /* not logged in */
+  }
+  return catalog;
+}
+
+function setupGyro() {
+  const attach = () =>
+    window.addEventListener("deviceorientation", (e) => {
+      const scene = sceneEl();
+      if (scene && scene.gyro) scene.gyro(e.alpha, e.beta, e.gamma);
+    });
+  const DOE = window.DeviceOrientationEvent;
+  if (DOE && typeof DOE.requestPermission === "function") {
+    DOE.requestPermission()
+      .then((state) => state === "granted" && attach())
+      .catch(() => {});
+  } else if (DOE) {
+    attach();
+  }
+}
+
+async function boot() {
+  const catalog = await fetchCatalog();
+
+  app = Elm.Main.init({
+    node: document.getElementById("app"),
+    flags: {
+      flat: initialFlat(),
+      webgl: hasWebGL(),
+      touch,
+      scene: params.get("scene") || null,
+      catalog: catalog ? JSON.stringify(catalog) : "",
+    },
+  });
+
+  app.ports.toScene.subscribe(forward);
+  app.ports.openUrl.subscribe((url) =>
+    window.open(url, "_blank", "noopener,noreferrer")
+  );
+  app.ports.navigate.subscribe((url) => {
+    window.location.href = url;
+  });
+  app.ports.setMode.subscribe((mode) => {
+    try {
+      localStorage.setItem("wttm.mode", mode);
+    } catch {
+      /* ignore */
+    }
+  });
+  app.ports.enableGyro.subscribe(setupGyro);
+
+  const flush = () => {
+    const scene = sceneEl();
+    if (scene && scene.send && pending.length) {
+      for (const msg of pending.splice(0)) scene.send(msg);
+    }
+  };
+  new MutationObserver(flush).observe(document.getElementById("app"), {
+    childList: true,
+    subtree: true,
+  });
+  flush();
+}
+
+boot();

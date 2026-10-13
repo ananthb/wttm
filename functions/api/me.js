@@ -1,8 +1,10 @@
 import defaultCatalog from "../catalog.json";
 
-// Who may see what. The map is injected by the platform as WTTM_ACCESS
-// (email -> audiences); the catalog as WTTM_CATALOG. Both are empty in a
-// clone, so a public visitor gets the committed example catalog.
+// The public catalog is served to everyone; the personal one is only reachable
+// through Access (functions/api/me.js). Access sets
+// Cf-Access-Authenticated-User-Email and Cloudflare strips it from client
+// requests, so a client cannot spoof it. WTTM_CATALOG and WTTM_ACCESS are
+// injected by the platform and never live in this repository.
 const DEFAULT_AUDIENCE = "everyone";
 
 function parse(value, fallback) {
@@ -55,26 +57,30 @@ function resolveScene(catalog, audiences) {
   return match ? match.scene : scenes.default ?? null;
 }
 
-export async function onRequestGet({ request, env }) {
-  const email = (
-    request.headers.get("Cf-Access-Authenticated-User-Email") ?? ""
-  ).toLowerCase();
-
+export function buildCatalog(env, email) {
   const access = parse(env.WTTM_ACCESS, {});
-  const catalog =
-    parse(env.WTTM_CATALOG, null) ?? defaultCatalog;
-
+  const catalog = parse(env.WTTM_CATALOG, null) ?? defaultCatalog;
   const audiences = audiencesFor(email, access);
-  const body = {
+  return {
     ...filter(catalog, audiences),
     scene: resolveScene(catalog, audiences),
     email: email || null,
   };
+}
 
+export function catalogResponse(body) {
   return new Response(JSON.stringify(body), {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "private, max-age=0, no-store",
     },
   });
+}
+
+// Access-gated. The header is present only for an authenticated user.
+export async function onRequestGet({ request, env }) {
+  const email = (
+    request.headers.get("Cf-Access-Authenticated-User-Email") ?? ""
+  ).toLowerCase();
+  return catalogResponse(buildCatalog(env, email));
 }

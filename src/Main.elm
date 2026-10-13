@@ -3,8 +3,7 @@ port module Main exposing (main)
 import Browser
 import Html exposing (Html, a, button, div, h1, h2, kbd, li, p, section, span, text, ul)
 import Html.Attributes exposing (class, href, rel, target)
-import Html.Events exposing (onClick)
-import Http
+import Html.Events exposing (on, onClick)
 import Json.Decode as D
 import Json.Encode as E
 import Time
@@ -17,6 +16,15 @@ port fromScene : (D.Value -> msg) -> Sub msg
 
 
 port openUrl : String -> Cmd msg
+
+
+port navigate : String -> Cmd msg
+
+
+port setMode : String -> Cmd msg
+
+
+port enableGyro : String -> Cmd msg
 
 
 
@@ -36,8 +44,7 @@ type Mode
 
 
 type Status
-    = Loading
-    | Failed String
+    = Failed String
     | Ready Catalog
 
 
@@ -71,7 +78,9 @@ type alias Catalog =
 type alias Flags =
     { flat : Bool
     , webgl : Bool
+    , touch : Bool
     , scene : Maybe String
+    , catalog : String
     }
 
 
@@ -79,6 +88,7 @@ type alias Model =
     { status : Status
     , phase : Phase
     , mode : Mode
+    , touch : Bool
     , sceneOverride : Maybe String
     , idle : Int
     , hintMove : Bool
@@ -89,16 +99,41 @@ type alias Model =
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
-    ( { status = Loading
-      , phase = Attract
-      , mode = if flags.flat || not flags.webgl then Flat else ThreeD
-      , sceneOverride = flags.scene
-      , idle = 0
-      , hintMove = False
-      , note = Nothing
-      , noteTtl = 0
-      }
-    , Http.get { url = "/api/me", expect = Http.expectJson GotCatalog catalogDecoder }
+    let
+        decoded =
+            if String.isEmpty flags.catalog then
+                Nothing
+
+            else
+                Result.toMaybe (D.decodeString catalogDecoder flags.catalog)
+
+        status =
+            case decoded of
+                Just catalog ->
+                    Ready catalog
+
+                Nothing ->
+                    Failed "no catalog"
+
+        model =
+            { status = status
+            , phase = Attract
+            , mode = if flags.flat || not flags.webgl then Flat else ThreeD
+            , touch = flags.touch
+            , sceneOverride = flags.scene
+            , idle = 0
+            , hintMove = False
+            , note = Nothing
+            , noteTtl = 0
+            }
+    in
+    ( model
+    , case decoded of
+        Just catalog ->
+            Cmd.batch (toScene (encodeCatalog catalog) :: sceneCmd model catalog)
+
+        Nothing ->
+            Cmd.none
     )
 
 
@@ -107,37 +142,34 @@ init flags =
 
 
 type Msg
-    = GotCatalog (Result Http.Error Catalog)
-    | Scene D.Value
+    = Scene D.Value
     | Tick
     | ToggleMode
     | DismissBlue
+    | Touch String Bool
+    | EnableGyro
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        GotCatalog (Ok catalog) ->
-            ( { model | status = Ready catalog }
-            , Cmd.batch (toScene (encodeCatalog catalog) :: sceneCmd model catalog)
-            )
-
-        GotCatalog (Err err) ->
-            ( { model | status = Failed (describeError err) }, Cmd.none )
-
         ToggleMode ->
             case model.mode of
                 ThreeD ->
-                    ( { model | mode = Flat }, Cmd.none )
+                    ( { model | mode = Flat }, setMode "flat" )
 
                 Flat ->
                     ( { model | mode = ThreeD }
-                    , case model.status of
-                        Ready catalog ->
-                            Cmd.batch (toScene (encodeCatalog catalog) :: sceneCmd model catalog)
+                    , Cmd.batch
+                        (setMode "three"
+                            :: (case model.status of
+                                    Ready catalog ->
+                                        toScene (encodeCatalog catalog) :: sceneCmd model catalog
 
-                        _ ->
-                            Cmd.none
+                                    _ ->
+                                        []
+                               )
+                        )
                     )
 
         Tick ->
@@ -164,6 +196,20 @@ update msg model =
         DismissBlue ->
             ( { model | phase = Attract }, toScene (E.object [ ( "type", E.string "reset" ) ]) )
 
+        EnableGyro ->
+            ( model, enableGyro "" )
+
+        Touch key down ->
+            ( { model | idle = 0, hintMove = False }
+            , toScene
+                (E.object
+                    [ ( "type", E.string "input" )
+                    , ( "key", E.string key )
+                    , ( "down", E.bool down )
+                    ]
+                )
+            )
+
         Scene value ->
             case D.decodeValue sceneDecoder value of
                 Ok event ->
@@ -178,7 +224,7 @@ handleScene event model =
     case event of
         Pill "red" ->
             ( { model | phase = Entering, idle = 0, hintMove = False }
-            , toScene (E.object [ ( "type", E.string "enter" ) ])
+            , toScene (toSceneE "enter")
             )
 
         Pill "blue" ->
@@ -189,6 +235,9 @@ handleScene event model =
 
         Open id ->
             ( model, openApp id model )
+
+        Login ->
+            ( model, navigate "/login" )
 
         Hovered _ ->
             ( model, Cmd.none )
@@ -209,17 +258,34 @@ handleScene event model =
             ( { model | mode = Flat }, Cmd.none )
 
 
-sceneCmd : Model -> Catalog -> List (Cmd Msg)
-sceneCmd model catalog =
-    case ( model.sceneOverride, catalog.scene ) of
-        ( Just id, _ ) ->
-            [ toScene (encodeScene id) ]
+toSceneE : String -> E.Value
+toSceneE kind =
+    E.object [ ( "type", E.string kind ) ]
 
-        ( Nothing, Just id ) ->
-            [ toScene (encodeScene id) ]
+
+loggedIn : Model -> Bool
+loggedIn model =
+    case model.status of
+        Ready catalog ->
+            catalog.email /= Nothing
 
         _ ->
-            []
+            False
+
+
+sceneCmd : Model -> Catalog -> List (Cmd Msg)
+sceneCmd model catalog =
+    toScene (encodeAuth model)
+        :: (case ( model.sceneOverride, catalog.scene ) of
+                ( Just id, _ ) ->
+                    [ toScene (encodeScene id) ]
+
+                ( Nothing, Just id ) ->
+                    [ toScene (encodeScene id) ]
+
+                _ ->
+                    []
+           )
 
 
 openApp : String -> Model -> Cmd Msg
@@ -235,25 +301,6 @@ openApp id model =
 
         _ ->
             Cmd.none
-
-
-describeError : Http.Error -> String
-describeError err =
-    case err of
-        Http.BadUrl _ ->
-            "bad url"
-
-        Http.Timeout ->
-            "timed out"
-
-        Http.NetworkError ->
-            "offline"
-
-        Http.BadStatus code ->
-            "http " ++ String.fromInt code
-
-        Http.BadBody _ ->
-            "bad response"
 
 
 
@@ -294,16 +341,14 @@ viewOverlay model =
         , viewStatus model
         , viewNote model
         , viewFooter model
+        , viewTouch model
         , viewBlue model
         ]
 
 
 viewToggle : Model -> Html Msg
 viewToggle model =
-    button
-        [ class "toggle"
-        , onClick ToggleMode
-        ]
+    button [ class "toggle", onClick ToggleMode ]
         [ text
             (case model.mode of
                 Flat ->
@@ -369,9 +414,6 @@ viewHud model =
 viewStatus : Model -> Html Msg
 viewStatus model =
     case model.status of
-        Loading ->
-            div [ class "status" ] [ text "jack in" ]
-
         Failed why ->
             div [ class "status error" ] [ text ("signal lost · " ++ why) ]
 
@@ -389,7 +431,7 @@ viewFooter model =
             div [ class "footer" ]
                 [ div [ class "keys" ]
                     [ span [] [ text "choose a pill to wake up" ] ]
-                , span [ class "brand" ] [ text "wttm" ]
+                , viewSignOut model
                 ]
 
         _ ->
@@ -403,13 +445,55 @@ viewFooter model =
                             "keys"
                         )
                     ]
-                    [ span [] [ kbd [] [ text "W A S D" ], text " ", kbd [] [ text "↑ ↓ ← →" ], text " move" ]
-                    , span [] [ kbd [] [ text "mouse" ], text " look" ]
-                    , span [] [ kbd [] [ text "click" ], text " open" ]
-                    , span [] [ kbd [] [ text "Esc" ], text " release" ]
-                    ]
-                , span [ class "brand" ] [ text "wttm" ]
+                    (if model.touch then
+                        [ span [] [ text "swipe to look · tap to open" ] ]
+
+                     else
+                        [ span [] [ kbd [] [ text "W A S D" ], text " ", kbd [] [ text "↑ ↓ ← →" ], text " move" ]
+                        , span [] [ kbd [] [ text "mouse" ], text " look" ]
+                        , span [] [ kbd [] [ text "click" ], text " open" ]
+                        , span [] [ kbd [] [ text "Esc" ], text " release" ]
+                        ]
+                    )
+                , viewSignOut model
                 ]
+
+
+viewSignOut : Model -> Html Msg
+viewSignOut model =
+    if loggedIn model then
+        a [ class "brand signout", href "/cdn-cgi/access/logout" ] [ text "sign out" ]
+
+    else
+        span [ class "brand" ] [ text "wttm" ]
+
+
+viewTouch : Model -> Html Msg
+viewTouch model =
+    if model.touch && model.mode == ThreeD && (model.phase == Entering || model.phase == Inside) then
+        div [ class "touch" ]
+            [ button
+                [ class "pad up", onPointer "pointerdown" (Touch "KeyW" True), onPointer "pointerup" (Touch "KeyW" False), onPointer "pointerleave" (Touch "KeyW" False), onPointer "pointercancel" (Touch "KeyW" False) ]
+                [ text "▲" ]
+            , button
+                [ class "pad left", onPointer "pointerdown" (Touch "KeyA" True), onPointer "pointerup" (Touch "KeyA" False), onPointer "pointerleave" (Touch "KeyA" False), onPointer "pointercancel" (Touch "KeyA" False) ]
+                [ text "◀" ]
+            , button
+                [ class "pad right", onPointer "pointerdown" (Touch "KeyD" True), onPointer "pointerup" (Touch "KeyD" False), onPointer "pointerleave" (Touch "KeyD" False), onPointer "pointercancel" (Touch "KeyD" False) ]
+                [ text "▶" ]
+            , button
+                [ class "pad down", onPointer "pointerdown" (Touch "KeyS" True), onPointer "pointerup" (Touch "KeyS" False), onPointer "pointerleave" (Touch "KeyS" False), onPointer "pointercancel" (Touch "KeyS" False) ]
+                [ text "▼" ]
+            , button [ class "gyro", onClick EnableGyro ] [ text "enable tilt" ]
+            ]
+
+    else
+        text ""
+
+
+onPointer : String -> Msg -> Html.Attribute Msg
+onPointer name msg =
+    on name (D.succeed msg)
 
 
 viewBlue : Model -> Html Msg
@@ -445,8 +529,7 @@ viewFlatBody : Model -> Html Msg
 viewFlatBody model =
     case model.status of
         Ready catalog ->
-            div [ class "flat-catalog" ]
-                (List.map viewFlatCategory catalog.categories)
+            div [ class "flat-catalog" ] (List.map viewFlatCategory catalog.categories)
 
         _ ->
             text ""
@@ -513,6 +596,7 @@ appDecoder =
 type SceneEvent
     = Pill String
     | Open String
+    | Login
     | Hovered String
     | SceneReady
     | Entered
@@ -532,6 +616,9 @@ sceneDecoder =
 
                     "open" ->
                         D.map Open (D.field "id" D.string)
+
+                    "login" ->
+                        D.succeed Login
 
                     "hover" ->
                         D.map Hovered (D.field "id" D.string)
@@ -588,6 +675,14 @@ encodeApp app =
 encodeScene : String -> E.Value
 encodeScene id =
     E.object [ ( "type", E.string "scene" ), ( "id", E.string id ) ]
+
+
+encodeAuth : Model -> E.Value
+encodeAuth model =
+    E.object
+        [ ( "type", E.string "auth" )
+        , ( "loggedIn", E.bool (loggedIn model) )
+        ]
 
 
 main : Program Flags Model Msg

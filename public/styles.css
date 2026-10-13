@@ -397,3 +397,74 @@ wttm-scene canvas {
   color: var(--green-dim);
   font-size: 0.78rem;
 }
+
+wttm-scene canvas {
+  touch-action: none;
+}
+
+.footer a {
+  pointer-events: auto;
+}
+
+.signout {
+  color: var(--green);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(77, 255, 158, 0.4);
+}
+
+.touch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.touch .pad {
+  position: absolute;
+  width: 3.2rem;
+  height: 3.2rem;
+  pointer-events: auto;
+  border-radius: 50%;
+  border: 1px solid rgba(77, 255, 158, 0.5);
+  background: rgba(2, 12, 8, 0.5);
+  color: var(--green);
+  font-size: 1.05rem;
+  line-height: 1;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.touch .up {
+  left: 50%;
+  bottom: 9rem;
+  transform: translateX(-50%);
+}
+
+.touch .down {
+  left: 50%;
+  bottom: 4.6rem;
+  transform: translateX(-50%);
+}
+
+.touch .left {
+  left: 1.6rem;
+  bottom: 6.8rem;
+}
+
+.touch .right {
+  right: 1.6rem;
+  bottom: 6.8rem;
+}
+
+.touch .gyro {
+  left: 50%;
+  bottom: 0.8rem;
+  transform: translateX(-50%);
+  width: auto;
+  height: auto;
+  border-radius: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}

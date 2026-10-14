@@ -51,6 +51,13 @@ let rainDesired = false;
 let rainInstance = null;
 let rainCanvas = null;
 
+// The rain stays out of these so the text over it stays readable.
+function flatOccluders() {
+  return document.querySelectorAll(
+    ".flat .hud, .flat .settings, .flat .card, .flat .flat-category h2"
+  );
+}
+
 // Start, stop or move the rain to match the current flat view and settings.
 function applyRain() {
   const canvas = document.querySelector(".flat .rain");
@@ -65,7 +72,7 @@ function applyRain() {
   }
   if (rainInstance && rainCanvas === canvas) return;
   if (rainInstance) rainInstance.stop();
-  rainInstance = matrixRain(canvas);
+  rainInstance = matrixRain(canvas, { occluders: flatOccluders });
   rainCanvas = canvas;
 }
 

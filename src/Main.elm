@@ -585,15 +585,22 @@ viewFlat model =
             [ div [ class "flat-head" ]
                 [ viewHud model
                 , div [ class "flat-actions" ]
-                    [ viewSettingsButton model
+                    [ viewSettingsMenu model
                     , viewToggle model
                     ]
                 ]
-            , viewSettings model
             , viewStatus model
             , viewFlatBody model
             , div [ class "flat-footer" ] [ viewColophon model ]
             ]
+        ]
+
+
+viewSettingsMenu : Model -> Html Msg
+viewSettingsMenu model =
+    div [ class "settings-wrap" ]
+        [ viewSettingsButton model
+        , viewSettings model
         ]
 
 

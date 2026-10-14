@@ -626,10 +626,36 @@ wttm-scene canvas {
   pointer-events: auto;
 }
 
-.signout {
+.auth {
+  display: inline-block;
+  pointer-events: auto;
   color: var(--green);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   text-decoration: none;
+  background: rgba(2, 12, 8, 0.6);
+  border: 1px solid rgba(77, 255, 158, 0.4);
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.85rem;
+}
+
+.auth:hover,
+.auth:focus {
+  background: rgba(77, 255, 158, 0.14);
+  outline: none;
+}
+
+/* In the colophon it reads as a link beside the brand, not a button. */
+.colophon .auth {
+  background: transparent;
+  border: none;
   border-bottom: 1px solid rgba(77, 255, 158, 0.4);
+  border-radius: 0;
+  padding: 0;
+  font-size: 0.85em;
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .touch {

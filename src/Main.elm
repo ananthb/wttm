@@ -522,12 +522,17 @@ viewColophon model =
     div [ class "colophon" ]
         [ a [ class "brand", href "https://github.com/ananthb/wttm" ] [ text "wttm" ]
         , a [ class "license", href "https://github.com/ananthb/wttm/blob/main/LICENSE" ] [ text "AGPL-3.0" ]
-        , if loggedIn model then
-            a [ class "brand signout", href "/cdn-cgi/access/logout" ] [ text "sign out" ]
-
-          else
-            text ""
+        , viewAuth model
         ]
+
+
+viewAuth : Model -> Html Msg
+viewAuth model =
+    if loggedIn model then
+        a [ class "auth", href "/cdn-cgi/access/logout" ] [ text "log out" ]
+
+    else
+        a [ class "auth", href "/login" ] [ text "log in" ]
 
 
 viewTouch : Model -> Html Msg
@@ -585,7 +590,8 @@ viewFlat model =
             [ div [ class "flat-head" ]
                 [ viewHud model
                 , div [ class "flat-actions" ]
-                    [ viewSettingsMenu model
+                    [ viewAuth model
+                    , viewSettingsMenu model
                     , viewToggle model
                     ]
                 ]

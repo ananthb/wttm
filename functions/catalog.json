@@ -27,10 +27,10 @@
       "label": "Media",
       "icon": "▶",
       "tier": 0,
-      "audience": ["everyone"],
+      "audience": ["members"],
       "apps": [
-        { "id": "watch", "title": "Watch", "description": "Everything, streaming", "url": "https://example.com/watch", "icon": "🎞", "audience": ["everyone"] },
-        { "id": "requests", "title": "Requests", "description": "Ask for more", "url": "https://example.com/requests", "icon": "🔎", "audience": ["everyone"] }
+        { "id": "watch", "title": "Watch", "description": "Everything, streaming", "url": "https://example.com/watch", "icon": "🎞", "audience": ["members"] },
+        { "id": "requests", "title": "Requests", "description": "Ask for more", "url": "https://example.com/requests", "icon": "🔎", "audience": ["members"] }
       ]
     },
     {
@@ -38,9 +38,9 @@
       "label": "Websites",
       "icon": "🌐",
       "tier": 0,
-      "audience": ["everyone"],
+      "audience": ["members"],
       "apps": [
-        { "id": "site-home", "title": "Home", "description": "The front door", "url": "https://example.com", "icon": "🏠", "audience": ["everyone"] }
+        { "id": "site-home", "title": "Home", "description": "The front door", "url": "https://example.com", "icon": "🏠", "audience": ["members"] }
       ]
     },
     {

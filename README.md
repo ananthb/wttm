@@ -21,10 +21,11 @@ Elm owns the page and the state machine. A `<wttm-scene>` web component owns the
 
 ## Who sees what
 
-The site is public. `/api/me` returns the `everyone` catalog to a visitor, and
-the personal one when the request carries a `CF_Authorization` cookie the
-Function can verify against the Access team certs (`WTTM_TEAM_DOMAIN`). Logging
-in happens at `/login`, the one Access-protected path.
+The site is public. `/api/me` returns the `everyone` catalog to a visitor — the
+public apps — and the personal one when the request carries a `CF_Authorization`
+cookie the Function can verify against the Access team certs
+(`WTTM_TEAM_DOMAIN`). Anything beyond the public apps is tagged `members` and
+needs that cookie; logging in happens at `/login`, the one Access-protected path.
 
 The personal side is `WTTM_ACCESS` (email → audiences) and `WTTM_CATALOG` (the
 apps, each tagged with the audiences that may see it), injected by the platform

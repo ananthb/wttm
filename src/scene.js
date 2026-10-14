@@ -30,6 +30,7 @@ class WttmScene extends HTMLElement {
     this.headers = [];
     this.pills = [];
     this.interactives = [];
+    this.cardTextures = new Map();
     this.hovered = null;
     this.pointer = new THREE.Vector2();
     this.yaw = 0;
@@ -259,8 +260,11 @@ class WttmScene extends HTMLElement {
       this.scene.remove(panel.mesh);
       panel.mesh.geometry.dispose();
       panel.mesh.material.map?.dispose();
+      panel.mesh.userData.collapsedMap?.dispose();
       panel.mesh.material.dispose();
     }
+    for (const tex of this.cardTextures.values()) tex.dispose();
+    this.cardTextures.clear();
     for (const header of this.headers) this.scene.remove(header);
     this.panels = [];
     this.headers = [];
@@ -307,7 +311,15 @@ class WttmScene extends HTMLElement {
       mesh.position.set(p.x, p.y, p.z);
       mesh.scale.setScalar(0.001);
       mesh.visible = false;
-      mesh.userData = { kind: "app", id: p.app.id, baseY: p.y };
+      mesh.userData = {
+        kind: "app",
+        id: p.app.id,
+        baseY: p.y,
+        app: p.app,
+        accent: ACCENTS[p.categoryId] ?? GREEN,
+        collapsedMap: mesh.material.map,
+        expanded: false,
+      };
       const ring = new THREE.LineSegments(
         new THREE.EdgesGeometry(new THREE.PlaneGeometry(util.CARD_W, util.CARD_H)),
         new THREE.LineBasicMaterial({ color: ACCENTS[p.categoryId] ?? GREEN, transparent: true, opacity: 0 })
@@ -517,8 +529,10 @@ class WttmScene extends HTMLElement {
       const { mesh, ring, base } = panel;
       mesh.quaternion.copy(this.camera.quaternion);
       const hot = hit === mesh;
+      this.setCardExpanded(mesh, hot);
       mesh.position.y = base.y + Math.sin(this.time * 1.1 + base.x * 1.7) * 0.05;
-      mesh.scale.setScalar(lerp(mesh.scale.x, hot ? 1.1 : 1, 0.12));
+      mesh.position.z = base.z + (hot ? 0.7 : 0);
+      mesh.scale.setScalar(lerp(mesh.scale.x, hot ? 1.28 : 1, 0.12));
       ring.material.opacity = lerp(ring.material.opacity, hot ? 0.9 : 0, 0.15);
     }
     if (this.loginPanel) {
@@ -527,6 +541,25 @@ class WttmScene extends HTMLElement {
       this.loginPanel.scale.setScalar(lerp(this.loginPanel.scale.x, target, 0.12));
     }
     if (this.def?.animate) this.def.animate(dt, this.time);
+  }
+
+  // Looking at a card swaps in a texture with the description, so it opens the
+  // way the simple view's cards do. The bigger texture is built once and kept.
+  setCardExpanded(mesh, expanded) {
+    if (expanded === mesh.userData.expanded) return;
+    mesh.userData.expanded = expanded;
+    if (expanded) {
+      const { app, accent } = mesh.userData;
+      let tex = this.cardTextures.get(app.id);
+      if (!tex) {
+        tex = util.cardTexture(app, accent, true);
+        this.cardTextures.set(app.id, tex);
+      }
+      mesh.material.map = tex;
+    } else {
+      mesh.material.map = mesh.userData.collapsedMap;
+    }
+    mesh.material.needsUpdate = true;
   }
 
   animateCamera(dt) {

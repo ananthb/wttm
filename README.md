@@ -45,31 +45,33 @@ Cloudflare Pages runs `npm run build` and serves `dist/` with `functions/`.
 
 ## Scenes
 
-After the red pill you land in one of six scenes, chosen per audience by the
-catalog's `scenes.byAudience` map (in the platform) and overridable with
-`?scene=<id>`:
+After the red pill you walk a continuous world with one scene per group:
 
-| id | Scene |
-|---|---|
-| `ship` | The Nebuchadnezzar |
-| `construct` | The Construct |
-| `keymaker` | The Keymaker's Room |
-| `oracle` | The Oracle's Apartment |
-| `lobby` | The Lobby |
-| `downtown` | The Street |
+| group | scene | theme id |
+|---|---|---|
+| Apps | The Street | `street` |
+| Media | The Lobby | `lobby` |
+| Websites | The Construct | `construct` |
+| Platform | The Nebuchadnezzar | `ship` |
+| Home | The Oracle's Apartment | `oracle` |
+| Build | The Keymaker's Room | `keymaker` |
+
+The mapping is `CATEGORY_THEME` in `src/three/scenes.js`; a group with no entry
+cycles the themes. Scenes sit end to end along the corridor and each back wall
+has a doorway, so the groups are reached on foot.
 
 Each scene is a module in `src/three/scenes.js` with its own environment,
-lighting and a signature interactive prop; the catalog entries are laid out by
-a shared helper so every entry is present and reachable. Add one by exporting a
-builder and listing it in `SCENE_ORDER`.
+lighting and a signature interactive prop; `buildWorld` offsets it to its slot
+and lays that group's cards inside it. Add one by exporting a builder and
+listing it in `THEME_ORDER`.
 
 ## Controls
 
 The opening zooms in over Neo's shoulder to the desk; click the red pill. Once
 inside it is first-person: **W A S D** or the **arrow keys** to move, **mouse**
 to look (click once to capture the pointer), **click** to open what the
-crosshair is on, **Esc** to release. After 30s still, the movement keys are
-highlighted.
+crosshair is on, **Esc** to release. Looking at a card expands its description;
+looking away closes it. After 30s still, the movement keys are highlighted.
 
 On a touch device: **drag** to look, **tap** to open, the on-screen **pad** to
 move, and **enable tilt** to look with the gyroscope. A **LOG IN** panel sits

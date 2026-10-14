@@ -10,7 +10,7 @@ export const CARD_W = 2.2;
 export const CARD_H = 1.375;
 export const GRID_X = 2.5;
 export const GRID_Y = 1.8;
-export const TIER_STEP = 7;
+
 
 export const ACCENTS = {
   apps: 0x6cf0ff,
@@ -113,7 +113,9 @@ export function labelSprite(text, color, width = 3) {
   return sprite;
 }
 
-export function cardTexture(app, accent = GREEN) {
+// A card is drawn twice: collapsed shows the icon and name, expanded adds the
+// description, so looking at one opens it the way the simple view does.
+export function cardTexture(app, accent = GREEN, expanded = false) {
   const w = 640;
   const h = 400;
   const canvas = document.createElement("canvas");
@@ -144,7 +146,7 @@ export function cardTexture(app, accent = GREEN) {
     ctx.textBaseline = "middle";
     ctx.textAlign = "center";
     ctx.fillStyle = "#eafff4";
-    ctx.fillText(app.icon, 128, 200);
+    ctx.fillText(app.icon, 128, expanded ? 200 : 210);
   }
 
   ctx.textAlign = "left";
@@ -154,24 +156,69 @@ export function cardTexture(app, accent = GREEN) {
   const title = fitText(ctx, app.title || "", 420, 60, 26);
   ctx.font = `600 ${title.size}px monospace`;
   ctx.fillStyle = "#d9ffe9";
-  ctx.fillText(title.text, 248, 180);
-
+  ctx.fillText(title.text, 248, expanded ? 182 : 210);
   ctx.shadowBlur = 0;
-  ctx.font = "30px monospace";
-  ctx.fillStyle = "rgba(120,200,165,0.9)";
-  ctx.fillText(ellipsize(ctx, app.description || "", 400), 248, 236);
 
-  ctx.strokeStyle = "rgba(77,255,158,0.55)";
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(248, 268);
-  ctx.lineTo(560, 268);
-  ctx.stroke();
+  if (expanded) {
+    ctx.font = "30px monospace";
+    ctx.fillStyle = "rgba(120,200,165,0.9)";
+    ctx.fillText(ellipsize(ctx, app.description || "", 400), 248, 242);
+
+    ctx.strokeStyle = "rgba(77,255,158,0.55)";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(248, 280);
+    ctx.lineTo(560, 280);
+    ctx.stroke();
+
+    ctx.font = "26px monospace";
+    ctx.fillStyle = "rgba(120,200,165,0.7)";
+    ctx.fillText("click to open", 248, 322);
+  } else {
+    ctx.textAlign = "right";
+    ctx.font = "52px monospace";
+    ctx.fillStyle = "rgba(77,255,158,0.6)";
+    ctx.fillText("›", 596, 226);
+    ctx.textAlign = "left";
+  }
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   return tex;
+}
+
+export function gridFor(count) {
+  const cols = count <= 1 ? 1 : count <= 4 ? 2 : count <= 9 ? 3 : 4;
+  return { cols, rows: Math.ceil(count / cols) || 1 };
+}
+
+// One group's block of cards, facing +z and centred at (x, y, z). The world
+// gives every group its own scene and lays that scene's cards out with this.
+export function layoutCategory(category, { x = 0, y = 2, z = 0 } = {}) {
+  const apps = category.apps ?? [];
+  const { cols, rows } = gridFor(apps.length);
+  const panels = apps.map((app, i) => {
+    const col = i % cols;
+    const row = (i / cols) | 0;
+    return {
+      app,
+      categoryId: category.id,
+      x: x + (col - (cols - 1) / 2) * GRID_X,
+      y: y + ((rows - 1) / 2 - row) * GRID_Y,
+      z,
+    };
+  });
+  const headers = [
+    {
+      label: category.label,
+      accentId: category.id,
+      x,
+      y: y + (rows / 2) * GRID_Y + 0.9,
+      z,
+    },
+  ];
+  return { panels, headers };
 }
 
 export function makeCard(app, accent) {
@@ -238,47 +285,6 @@ export function makeLoginPanel(subtitle) {
     })
   );
   return mesh;
-}
-
-// Categories in tiers; every entry is placed so the whole catalog is present
-// and reachable. A scene tunes depth, height and arc. Columns per category are
-// capped so a big category stays a compact block, and blocks are spaced by
-// block width plus a gap so no two cards touch.
-export function layoutCatalog(catalog, opts = {}) {
-  const { zForTier = (t) => -4 - t * TIER_STEP, y = 1.8, arc = 0, thick = opts.thick ?? 0 } = opts;
-  const panels = [];
-  const headers = [];
-  const byTier = new Map();
-  for (const category of catalog.categories) {
-    const tier = category.tier ?? 0;
-    if (!byTier.has(tier)) byTier.set(tier, []);
-    byTier.get(tier).push(category);
-  }
-  for (const [tier, categories] of byTier) {
-    const z = zForTier(tier);
-    categories.forEach((category, ci) => {
-      const apps = category.apps ?? [];
-      const cols = apps.length <= 1 ? 1 : apps.length <= 4 ? 2 : apps.length <= 9 ? 3 : 4;
-      const rows = Math.ceil(apps.length / cols);
-      const gridW = cols * GRID_X;
-      const baseX = (ci - (categories.length - 1) / 2) * (gridW + 4.5);
-      apps.forEach((app, i) => {
-        const col = i % cols;
-        const row = (i / cols) | 0;
-        const x = baseX + (col - (cols - 1) / 2) * GRID_X;
-        const zz = z + (arc ? Math.abs(baseX) * arc : 0) + (thick ? row * thick : 0);
-        panels.push({ app, categoryId: category.id, x, y: y + ((rows - 1) / 2 - row) * GRID_Y, z: zz });
-      });
-      headers.push({
-        label: category.label,
-        accentId: category.id,
-        x: baseX,
-        y: y + (rows / 2) * GRID_Y + 0.9,
-        z,
-      });
-    });
-  }
-  return { panels, headers };
 }
 
 // A tiny helper for scenes: an unlit, possibly emissive-looking box.

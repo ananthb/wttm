@@ -77,9 +77,15 @@ dead-ahead until you sign in.
 ## Simple view
 
 Not everyone wants a first-person scene. `?flat=1`, a browser without WebGL, or
-the **Simple view** button shows an accessible, keyboard-navigable list of the
-same links. **Enter the Matrix** switches back, and the choice is remembered on
-the device.
+the **Simple view** button shows an accessible, keyboard-navigable board of the
+same links: groups side by side while there is room and one below the other when
+there is not, cards that expand to show their description, and each app's own
+favicon (overridable with a `favicon` on the catalog entry). **Enter the Matrix**
+switches back, and the choice is remembered on the device.
+
+The simple view's background is a Matrix rain effect. A site sets the default
+with `matrixRain` in the catalog; each device can turn it off in the settings
+panel, and a visitor whose system asks for reduced motion never sees it.
 
 ## License
 

@@ -1,9 +1,9 @@
 port module Main exposing (main)
 
 import Browser
-import Html exposing (Html, a, button, div, h1, h2, kbd, li, p, section, span, text, ul)
-import Html.Attributes exposing (class, href, rel, target)
-import Html.Events exposing (on, onClick)
+import Html exposing (Html, a, button, div, h1, h2, img, input, kbd, label, li, p, section, span, text, ul)
+import Html.Attributes exposing (alt, attribute, checked, class, disabled, href, rel, src, target, type_)
+import Html.Events exposing (on, onClick, onCheck)
 import Json.Decode as D
 import Json.Encode as E
 import Time
@@ -25,6 +25,9 @@ port setMode : String -> Cmd msg
 
 
 port enableGyro : String -> Cmd msg
+
+
+port setRain : Bool -> Cmd msg
 
 
 
@@ -54,6 +57,7 @@ type alias App =
     , description : String
     , url : String
     , icon : String
+    , favicon : String
     }
 
 
@@ -69,8 +73,10 @@ type alias Category =
 type alias Catalog =
     { title : String
     , subtitle : String
+    , blurb : String
     , email : Maybe String
     , scene : Maybe String
+    , matrixRain : Bool
     , categories : List Category
     }
 
@@ -81,6 +87,9 @@ type alias Flags =
     , touch : Bool
     , scene : Maybe String
     , catalog : String
+    , reducedMotion : Bool
+    , rain : Bool
+    , rainEnabled : Bool
     }
 
 
@@ -94,6 +103,11 @@ type alias Model =
     , hintMove : Bool
     , note : Maybe String
     , noteTtl : Int
+    , reducedMotion : Bool
+    , rain : Bool
+    , rainEnabled : Bool
+    , settingsOpen : Bool
+    , expanded : List String
     }
 
 
@@ -125,15 +139,20 @@ init flags =
             , hintMove = False
             , note = Nothing
             , noteTtl = 0
+            , reducedMotion = flags.reducedMotion
+            , rain = flags.rain
+            , rainEnabled = flags.rainEnabled
+            , settingsOpen = False
+            , expanded = []
             }
     in
     ( model
     , case decoded of
         Just catalog ->
-            Cmd.batch (toScene (encodeCatalog catalog) :: sceneCmd model catalog)
+            Cmd.batch (setRain flags.rain :: toScene (encodeCatalog catalog) :: sceneCmd model catalog)
 
         Nothing ->
-            Cmd.none
+            setRain flags.rain
     )
 
 
@@ -145,6 +164,9 @@ type Msg
     = Scene D.Value
     | Tick
     | ToggleMode
+    | ToggleApp String
+    | ToggleSettings
+    | ToggleRain
     | DismissBlue
     | Touch String Bool
     | EnableGyro
@@ -153,6 +175,23 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        ToggleApp id ->
+            ( { model | expanded = toggleMember id model.expanded }, Cmd.none )
+
+        ToggleSettings ->
+            ( { model | settingsOpen = not model.settingsOpen }, Cmd.none )
+
+        ToggleRain ->
+            if model.rainEnabled && not model.reducedMotion then
+                let
+                    next =
+                        not model.rain
+                in
+                ( { model | rain = next }, setRain next )
+
+            else
+                ( model, Cmd.none )
+
         ToggleMode ->
             case model.mode of
                 ThreeD ->
@@ -261,6 +300,20 @@ handleScene event model =
 toSceneE : String -> E.Value
 toSceneE kind =
     E.object [ ( "type", E.string kind ) ]
+
+
+toggleMember : String -> List String -> List String
+toggleMember id list =
+    if List.member id list then
+        List.filter (\x -> x /= id) list
+
+    else
+        id :: list
+
+
+effectiveRain : Model -> Bool
+effectiveRain model =
+    model.rain && not model.reducedMotion
 
 
 loggedIn : Model -> Bool
@@ -386,13 +439,13 @@ viewNote model =
 viewHud : Model -> Html Msg
 viewHud model =
     let
-        ( title, subtitle ) =
+        ( title, subtitle, blurb ) =
             case model.status of
                 Ready catalog ->
-                    ( catalog.title, catalog.subtitle )
+                    ( catalog.title, catalog.subtitle, catalog.blurb )
 
                 _ ->
-                    ( "Welcome To The Matrix", "Wake up." )
+                    ( "Welcome To The Matrix", "Wake up.", "" )
 
         who =
             case model.status of
@@ -407,6 +460,11 @@ viewHud model =
     div [ class "hud" ]
         [ h1 [] [ text title ]
         , p [ class "subtitle" ] [ text subtitle ]
+        , if String.isEmpty blurb then
+            text ""
+
+          else
+            p [ class "blurb" ] [ text blurb ]
         , who
         ]
 
@@ -522,46 +580,195 @@ viewBlue model =
 viewFlat : Model -> Html Msg
 viewFlat model =
     div [ class "flat" ]
-        [ viewToggle model
-        , viewHud model
-        , viewStatus model
-        , viewFlatBody model
-        , div [ class "flat-footer" ] [ viewColophon model ]
+        [ Html.node "canvas" [ class "rain" ] []
+        , div [ class "flat-inner" ]
+            [ div [ class "flat-head" ]
+                [ viewHud model
+                , div [ class "flat-actions" ]
+                    [ viewSettingsButton model
+                    , viewToggle model
+                    ]
+                ]
+            , viewSettings model
+            , viewStatus model
+            , viewFlatBody model
+            , div [ class "flat-footer" ] [ viewColophon model ]
+            ]
         ]
+
+
+viewSettingsButton : Model -> Html Msg
+viewSettingsButton model =
+    button
+        [ class "settings-button"
+        , onClick ToggleSettings
+        , attribute "aria-label" "Settings"
+        , attribute "aria-expanded" (if model.settingsOpen then "true" else "false")
+        ]
+        [ text "⚙" ]
+
+
+viewSettings : Model -> Html Msg
+viewSettings model =
+    if not model.settingsOpen then
+        text ""
+
+    else
+        div [ class "settings" ]
+            [ if model.rainEnabled then
+                label [ class "setting" ]
+                    [ input
+                        [ type_ "checkbox"
+                        , checked (effectiveRain model)
+                        , disabled model.reducedMotion
+                        , onCheck (\_ -> ToggleRain)
+                        ]
+                        []
+                    , text "Matrix rain"
+                    ]
+
+              else
+                p [ class "setting-hint" ] [ text "Matrix rain is off for this site." ]
+            , if model.reducedMotion then
+                p [ class "setting-hint" ] [ text "Off: your system asks for reduced motion." ]
+
+              else
+                text ""
+            ]
 
 
 viewFlatBody : Model -> Html Msg
 viewFlatBody model =
     case model.status of
         Ready catalog ->
-            div [ class "flat-catalog" ] (List.map viewFlatCategory catalog.categories)
+            div [ class "flat-catalog" ] (List.map (viewFlatCategory model) catalog.categories)
 
         _ ->
             text ""
 
 
-viewFlatCategory : Category -> Html Msg
-viewFlatCategory category =
+viewFlatCategory : Model -> Category -> Html Msg
+viewFlatCategory model category =
     section [ class "flat-category" ]
         [ h2 [] [ text category.label ]
-        , ul []
-            (List.map
-                (\app ->
-                    li []
-                        [ a
-                            [ href app.url
-                            , target "_blank"
-                            , rel "noopener noreferrer"
-                            ]
-                            [ span [ class "flat-icon" ] [ text app.icon ]
-                            , span [ class "flat-title" ] [ text app.title ]
-                            , span [ class "flat-desc" ] [ text app.description ]
-                            ]
-                        ]
-                )
-                category.apps
-            )
+        , ul [] (List.map (viewAppCard model) category.apps)
         ]
+
+
+viewAppCard : Model -> App -> Html Msg
+viewAppCard model app =
+    let
+        expanded =
+            List.member app.id model.expanded
+
+        hasDesc =
+            not (String.isEmpty app.description)
+    in
+    li [ class ("card" ++ (if expanded then " expanded" else "")) ]
+        [ div [ class "card-head" ]
+            [ span [ class "card-icon" ]
+                [ span [ class "card-emoji" ] [ text (emojiFor app) ]
+                , faviconImg app
+                ]
+            , a
+                [ class "card-title"
+                , href app.url
+                , target "_blank"
+                , rel "noopener noreferrer"
+                ]
+                [ text app.title ]
+            , if hasDesc then
+                button
+                    [ class "card-toggle"
+                    , onClick (ToggleApp app.id)
+                    , attribute "aria-expanded" (if expanded then "true" else "false")
+                    , attribute "aria-label"
+                        (if expanded then
+                            "Hide description"
+
+                         else
+                            "Show description"
+                        )
+                    ]
+                    [ text
+                        (if expanded then
+                            "▾"
+
+                         else
+                            "▸"
+                        )
+                    ]
+
+              else
+                text ""
+            ]
+        , if hasDesc then
+            div [ class "card-body" ]
+                [ p [] [ text app.description ]
+                , a
+                    [ class "card-open"
+                    , href app.url
+                    , target "_blank"
+                    , rel "noopener noreferrer"
+                    ]
+                    [ text ("Open " ++ app.title) ]
+                ]
+
+          else
+            text ""
+        ]
+
+
+emojiFor : App -> String
+emojiFor app =
+    if String.startsWith "http" app.icon then
+        ""
+
+    else
+        app.icon
+
+
+faviconImg : App -> Html Msg
+faviconImg app =
+    let
+        source =
+            if not (String.isEmpty app.favicon) then
+                app.favicon
+
+            else if String.startsWith "http" app.icon then
+                app.icon
+
+            else
+                originOf app.url
+                    |> (\origin ->
+                            if String.isEmpty origin then
+                                ""
+
+                            else
+                                origin ++ "/favicon.ico"
+                       )
+    in
+    if String.isEmpty source then
+        text ""
+
+    else
+        img
+            [ class "card-favicon"
+            , src source
+            , alt ""
+            , attribute "loading" "lazy"
+            ]
+            []
+
+
+originOf : String -> String
+originOf url =
+    case String.split "://" url of
+        scheme :: rest :: _ ->
+            scheme ++ "://" ++ (rest |> String.split "/" |> List.head |> Maybe.withDefault rest)
+
+        _ ->
+            ""
 
 
 
@@ -570,11 +777,13 @@ viewFlatCategory category =
 
 catalogDecoder : D.Decoder Catalog
 catalogDecoder =
-    D.map5 Catalog
+    D.map7 Catalog
         (D.field "title" D.string)
         (D.field "subtitle" D.string)
+        (D.oneOf [ D.field "blurb" D.string, D.succeed "" ])
         (D.maybe (D.field "email" D.string))
         (D.oneOf [ D.field "scene" D.string |> D.map Just, D.succeed Nothing ])
+        (D.oneOf [ D.field "matrixRain" D.bool, D.succeed True ])
         (D.field "categories" (D.list categoryDecoder))
 
 
@@ -590,12 +799,13 @@ categoryDecoder =
 
 appDecoder : D.Decoder App
 appDecoder =
-    D.map5 App
+    D.map6 App
         (D.field "id" D.string)
         (D.field "title" D.string)
         (D.field "description" D.string)
         (D.field "url" D.string)
         (D.oneOf [ D.field "icon" D.string, D.succeed "" ])
+        (D.oneOf [ D.field "favicon" D.string, D.succeed "" ])
 
 
 type SceneEvent

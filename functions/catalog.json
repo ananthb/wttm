@@ -1,7 +1,9 @@
 {
   "title": "Welcome To The Matrix",
   "subtitle": "This is your last chance. After this, there is no turning back.",
+  "blurb": "One account, the same email everywhere.",
   "defaultView": "flat",
+  "matrixRain": true,
   "scenes": {
     "default": "downtown",
     "byAudience": [

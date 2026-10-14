@@ -345,21 +345,122 @@ wttm-scene canvas {
   inset: 0;
   overflow: auto;
   padding: clamp(1rem, 4vw, 3rem);
-  background: radial-gradient(circle at 50% 0%, #06140f, #02060a 70%);
+  background: #02060a;
   color: var(--ink);
 }
 
-.flat .hud {
-  max-width: 62ch;
-  margin: 0 auto;
-  padding-top: 1rem;
+/* The rain sits behind the whole simple view and stays put while it scrolls. */
+.flat .rain {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  opacity: 0.55;
+  pointer-events: none;
 }
 
-.flat-catalog {
-  max-width: 72ch;
-  margin: 1.5rem auto 4rem;
+.flat-inner {
+  position: relative;
+  z-index: 1;
+  max-width: min(1100px, 100%);
+  margin: 0 auto;
+}
+
+/* Title and actions share a row and wrap: the toggle drops below the title on
+   a narrow viewport instead of landing on top of it. */
+.flat-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.5rem;
+}
+
+.flat-head .hud {
+  max-width: 62ch;
+  flex: 1 1 20rem;
+}
+
+.flat-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 0 0 auto;
+}
+
+.flat .toggle,
+.flat .settings-button {
+  position: static;
+}
+
+.settings-button {
+  pointer-events: auto;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--green);
+  background: rgba(2, 12, 8, 0.6);
+  border: 1px solid rgba(77, 255, 158, 0.4);
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+}
+
+.settings-button:hover,
+.settings-button:focus {
+  background: rgba(77, 255, 158, 0.14);
+  outline: none;
+}
+
+.settings {
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(77, 255, 158, 0.25);
+  border-radius: 0.5rem;
+  background: rgba(2, 12, 8, 0.75);
   display: flex;
   flex-direction: column;
+  gap: 0.4rem;
+  max-width: 32rem;
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.setting input {
+  accent-color: var(--green);
+  width: 1rem;
+  height: 1rem;
+}
+
+.setting-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--green-dim);
+}
+
+.blurb {
+  margin: 0.35rem 0 0;
+  font-size: clamp(0.75rem, 1.4vw, 0.9rem);
+  color: var(--cyan);
+  opacity: 0.9;
+}
+
+/* Side by side while there is room, one below the other once a column would be
+   narrower than the cards can stand. */
+.flat-catalog {
+  margin: 1.5rem auto 4rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+  align-items: start;
   gap: 1.8rem;
 }
 
@@ -381,43 +482,125 @@ wttm-scene canvas {
   gap: 0.5rem;
 }
 
-.flat-category a {
-  display: grid;
-  grid-template-columns: 2rem 1fr;
-  gap: 0.15rem 1rem;
-  align-items: baseline;
-  padding: 0.6rem 0.85rem;
+.card {
   border: 1px solid rgba(77, 255, 158, 0.18);
-  border-radius: 0.4rem;
-  color: var(--ink);
+  border-radius: 0.5rem;
+  background: rgba(3, 12, 16, 0.55);
+  overflow: hidden;
+}
+
+.card:hover,
+.card:focus-within {
+  border-color: rgba(77, 255, 158, 0.5);
+  background: rgba(77, 255, 158, 0.06);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.85rem;
+}
+
+.card-icon {
+  position: relative;
+  width: 1.6rem;
+  height: 1.6rem;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  font-size: 1.25rem;
+}
+
+.card-emoji {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.card-favicon {
+  position: relative;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 0.25rem;
+  object-fit: contain;
+  background: rgba(2, 12, 8, 0.85);
+}
+
+.card-favicon.failed {
+  display: none;
+}
+
+.card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #d9ffe9;
+  font-weight: 600;
   text-decoration: none;
 }
 
-.flat-category a:hover,
-.flat-category a:focus {
-  border-color: var(--green);
-  background: rgba(77, 255, 158, 0.08);
+.card-title:hover,
+.card-title:focus {
+  color: var(--green);
   outline: none;
 }
 
-.flat-icon {
-  grid-row: span 2;
-  font-size: 1.4rem;
+.card-toggle {
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: var(--green);
+  background: transparent;
+  border: 1px solid rgba(77, 255, 158, 0.35);
+  border-radius: 0.3rem;
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
 }
 
-.flat-title {
-  color: #d9ffe9;
-  font-weight: 600;
+.card-toggle:hover,
+.card-toggle:focus {
+  background: rgba(77, 255, 158, 0.14);
+  outline: none;
 }
 
-.flat-desc {
-  grid-column: 2;
+.card-body {
+  display: none;
+  margin-top: -0.1rem;
+  padding: 0.6rem 0.85rem 0.75rem 3.05rem;
+  border-top: 1px solid rgba(77, 255, 158, 0.12);
+}
+
+.card.expanded .card-body {
+  display: block;
+}
+
+.card-body p {
+  margin: 0 0 0.5rem;
   color: var(--green-dim);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.card-open {
+  color: var(--green);
   font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(77, 255, 158, 0.35);
+}
+
+.card-open:hover,
+.card-open:focus {
+  color: #eafff4;
+  outline: none;
 }
 
 .flat-footer {
-  max-width: 72ch;
   margin: 0 auto 2.5rem;
   display: flex;
   justify-content: flex-end;

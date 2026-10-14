@@ -1,4 +1,5 @@
 import "./scene.js";
+import { matrixRain } from "./matrix.js";
 
 function hasWebGL() {
   try {
@@ -14,6 +15,9 @@ function hasWebGL() {
 
 const params = new URLSearchParams(location.search);
 const touch = "ontouchstart" in window || (navigator.maxTouchPoints ?? 0) > 0;
+const reducedMotion =
+  typeof matchMedia === "function" &&
+  matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // URL override, then the device's remembered choice, then the server default.
 function resolveFlat(serverDefault) {
@@ -27,6 +31,52 @@ function resolveFlat(serverDefault) {
     /* ignore */
   }
   return serverDefault === "flat";
+}
+
+// The site default, then the device's remembered choice. Reduced motion does not
+// change the stored preference; it only stops the rain from rendering.
+function resolveRain(siteOn) {
+  if (!siteOn) return false;
+  try {
+    const stored = localStorage.getItem("wttm.rain");
+    if (stored === "off") return false;
+    if (stored === "on") return true;
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
+
+let rainDesired = false;
+let rainInstance = null;
+let rainCanvas = null;
+
+// Start, stop or move the rain to match the current flat view and settings.
+function applyRain() {
+  const canvas = document.querySelector(".flat .rain");
+  const on = rainDesired && !reducedMotion && !!canvas;
+  if (!on) {
+    if (rainInstance) {
+      rainInstance.stop();
+      rainInstance = null;
+      rainCanvas = null;
+    }
+    return;
+  }
+  if (rainInstance && rainCanvas === canvas) return;
+  if (rainInstance) rainInstance.stop();
+  rainInstance = matrixRain(canvas);
+  rainCanvas = canvas;
+}
+
+function setRain(desired) {
+  rainDesired = !!desired;
+  try {
+    localStorage.setItem("wttm.rain", rainDesired ? "on" : "off");
+  } catch {
+    /* ignore */
+  }
+  applyRain();
 }
 
 let app = null;
@@ -88,6 +138,7 @@ async function boot() {
   const webgl = hasWebGL();
   const catalog = await fetchCatalog();
   const flat = !webgl || resolveFlat(catalog?.defaultView);
+  const rainEnabled = catalog?.matrixRain !== false;
 
   app = Elm.Main.init({
     node: document.getElementById("app"),
@@ -97,6 +148,9 @@ async function boot() {
       touch,
       scene: params.get("scene") || null,
       catalog: catalog ? JSON.stringify(catalog) : "",
+      reducedMotion,
+      rain: resolveRain(rainEnabled),
+      rainEnabled,
     },
   });
 
@@ -115,6 +169,7 @@ async function boot() {
     }
   });
   app.ports.enableGyro.subscribe(setupGyro);
+  app.ports.setRain.subscribe(setRain);
 
   const flush = () => {
     const scene = sceneEl();
@@ -122,11 +177,29 @@ async function boot() {
       for (const msg of pending.splice(0)) scene.send(msg);
     }
   };
-  new MutationObserver(flush).observe(document.getElementById("app"), {
+  new MutationObserver(() => {
+    flush();
+    applyRain();
+  }).observe(document.getElementById("app"), {
     childList: true,
     subtree: true,
+    attributes: true,
   });
   flush();
+  applyRain();
 }
+
+// A favicon that will not load falls back to the emoji underneath. Image error
+// events do not bubble, so listen in the capture phase.
+document.addEventListener(
+  "error",
+  (event) => {
+    const img = event.target;
+    if (img && img.tagName === "IMG" && img.classList.contains("card-favicon")) {
+      img.classList.add("failed");
+    }
+  },
+  true
+);
 
 boot();

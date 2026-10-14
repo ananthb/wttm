@@ -123,7 +123,7 @@ function street() {
     if (i % 3 === 0) {
       const neon = box(0.3, 4, 0.3, neons[i % 4], { emissive: true });
       neon.position.set(side * 16, 5 + Math.random() * 4, 2 - i * 4.5);
-      env.add(neon, point(neons[i % 4], 8, 30, neon.position.x, neon.position.y + 1, neon.position.z));
+      env.add(neon, point(neons[i % 4], 13, 36, neon.position.x, neon.position.y + 1, neon.position.z));
     }
     env.add(b);
   }
@@ -131,10 +131,11 @@ function street() {
     const x = i % 2 ? -14 : 14;
     const post = cyl(0.08, 0.08, 5, 0x1c2830);
     post.position.set(x, 0.5, 2 - i * 5.5);
-    env.add(post, point(0x6cf0ff, 7, 24, x, 4.4, 2 - i * 5.5));
+    env.add(post, point(0x6cf0ff, 11, 30, x, 4.4, 2 - i * 5.5));
   }
   env.add(backWall(44, 16, 0x0a0e14));
-  env.add(point(CYAN, 8, 34, CARD_X, 4.5, CARD_LOCAL_Z + 3));
+  env.add(point(0x8fc8ff, 11, 80, 0, 9, -6));
+  env.add(point(CYAN, 13, 42, CARD_X, 4.5, CARD_LOCAL_Z + 3));
 
   const rain = (() => {
     const count = 1400;
@@ -181,7 +182,8 @@ function lobby() {
     }
   }
   env.add(backWall(40, 16, 0x1a1e26));
-  env.add(point(0xbcd4ff, 18, 90, 0, 10, -8));
+  env.add(point(0xbcd4ff, 28, 120, 0, 10, -8));
+  env.add(point(0x9fb8e0, 11, 90, 0, 4, 2));
 
   const bullets = [];
   for (let i = 0; i < 40; i++) {
@@ -216,9 +218,9 @@ function construct() {
   grid.position.y = -1.96;
   env.add(grid);
   env.add(backWall(46, 20, white));
-  env.add(point(0xffffff, 20, 70, 0, 7, -4));
-  env.add(point(0xffffff, 14, 60, -14, 8, -14));
-  env.add(point(0xffffff, 14, 60, 14, 8, -14));
+  env.add(point(0xffffff, 32, 110, 0, 7, -4));
+  env.add(point(0xffffff, 22, 90, -16, 9, -14));
+  env.add(point(0xffffff, 22, 90, 16, 9, -14));
 
   const cube = prop(box(0.5, 0.5, 0.5, 0x0a0a0a), "Anything you can imagine, we can put you in.");
   cube.position.set(CARD_X, 1, 3);
@@ -249,8 +251,9 @@ function ship() {
     pipe.position.set(sx, 6.6, -10);
     env.add(pipe);
   }
-  const alert = point(RED, 14, 60, 0, 6, -10);
-  env.add(alert, point(GREEN, 6, 40, 0, 3, -22));
+  const alert = point(RED, 20, 70, 0, 6, -10);
+  env.add(alert, point(GREEN, 12, 50, 0, 3, -22));
+  env.add(point(0x3a5a66, 11, 80, 0, 7, -2));
 
   const jack = prop(box(0.6, 0.9, 0.4, 0x11331f, { emissive: true }), "The jack goes in the back of the skull. Here, it is a button.");
   jack.position.set(CARD_X, 1, 3);
@@ -281,11 +284,11 @@ function oracle() {
   const lamp = cyl(0.12, 0.34, 1.8, 0xffd9a0, { emissive: true });
   lamp.position.set(-6, 0.9, 4);
   env.add(lamp);
-  const lampLight = point(0xffc98a, 16, 50, -6, 3, 4);
+  const lampLight = point(0xffc98a, 24, 64, -6, 3, 4);
   env.add(lampLight);
   const lamp2 = cyl(0.12, 0.34, 1.8, 0xffd9a0, { emissive: true });
   lamp2.position.set(9, 0.9, 4);
-  env.add(lamp2, point(0xffc98a, 12, 40, 9, 3, 4));
+  env.add(lamp2, point(0xffc98a, 18, 54, 9, 3, 4), point(0xffdcae, 11, 70, 0, 5, -4));
 
   const phone = prop(box(0.5, 0.3, 0.4, RED, { emissive: true }), "It rings. You already know who it is.");
   phone.position.set(CARD_X, 1, 3);
@@ -332,8 +335,8 @@ function keymaker() {
     env.add(key);
     keys.push({ key, phase: i * 0.4 });
   }
-  const glow = point(0xffb457, 12, 50, 0, 5, -8);
-  env.add(glow);
+  const glow = point(0xffb457, 20, 64, 0, 5, -8);
+  env.add(glow, point(0xffcf8a, 11, 70, 0, 6, -4));
 
   const key = prop(box(0.5, 0.5, 0.5, 0xd9b26a, { emissive: true }), "One of these opens a door you have not found yet.");
   key.position.set(CARD_X, 1, 3);
@@ -357,10 +360,12 @@ function buildWorld(ctx) {
   const panels = [];
   const headers = [];
   const props = [];
+  const places = [];
   const animators = [];
 
-  env.add(ground(500, 0x05080c));
-  env.add(new THREE.AmbientLight(0x18202a, 1.2));
+  env.add(ground(500, 0x0b1018));
+  env.add(new THREE.AmbientLight(0x2b3644, 1.5));
+  env.add(new THREE.HemisphereLight(0x53617c, 0x0b0f14, 0.75));
 
   categories.forEach((category, i) => {
     const z = FIRST_Z - i * SPACING;
@@ -375,6 +380,7 @@ function buildWorld(ctx) {
     const laid = layoutCategory(category, { x: side * CARD_X, y: 2.1, z: z + CARD_LOCAL_Z });
     panels.push(...laid.panels);
     headers.push(...laid.headers);
+    places.push({ id: category.id, label: category.label, x: side * CARD_X, z: z + CARD_LOCAL_Z });
   });
 
   const lastZ = categories.length ? FIRST_Z - (categories.length - 1) * SPACING : FIRST_Z;
@@ -382,11 +388,12 @@ function buildWorld(ctx) {
   return {
     env,
     layout: { panels, headers },
+    places,
     spawn: [0, 1.7, FIRST_Z + 11],
     look: [0, 1.7, FIRST_Z - 8],
     bounds: { x: 14, zMin: lastZ - 34, zMax: FIRST_Z + 13 },
-    fog: [0x02060a, 0.028],
-    background: 0x01030a,
+    fog: [0x02060a, 0.024],
+    background: 0x03060c,
     props,
     animate: (dt, t) => {
       for (const fn of animators) fn(dt, t);

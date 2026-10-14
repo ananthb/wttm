@@ -658,6 +658,78 @@ wttm-scene canvas {
   text-transform: none;
 }
 
+.minimap {
+  position: absolute;
+  right: clamp(1rem, 3vw, 2.5rem);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  pointer-events: auto;
+}
+
+.minimap-track {
+  position: relative;
+  width: 2px;
+  height: min(46vh, 20rem);
+  background: linear-gradient(rgba(77, 255, 158, 0.5), rgba(77, 255, 158, 0.15));
+}
+
+.minimap-place {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.7rem;
+  height: 0.7rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--green);
+  background: rgba(2, 12, 8, 0.85);
+  cursor: pointer;
+}
+
+.minimap-place:hover,
+.minimap-place:focus {
+  background: var(--green);
+  outline: none;
+}
+
+.minimap-label {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-family: inherit;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--green);
+  background: rgba(2, 12, 8, 0.9);
+  border: 1px solid rgba(77, 255, 158, 0.35);
+  border-radius: 0.3rem;
+  padding: 0.15rem 0.4rem;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+
+.minimap-place:hover .minimap-label,
+.minimap-place:focus .minimap-label {
+  opacity: 1;
+}
+
+.minimap-you {
+  position: absolute;
+  left: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  pointer-events: none;
+}
+
 .touch {
   position: absolute;
   inset: 0;

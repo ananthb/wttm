@@ -71,7 +71,9 @@ The opening zooms in over Neo's shoulder to the desk; click the red pill. Once
 inside it is first-person: **W A S D** or the **arrow keys** to move, **mouse**
 to look (click once to capture the pointer), **click** to open what the
 crosshair is on, **Esc** to release. Looking at a card expands its description;
-looking away closes it. After 30s still, the movement keys are highlighted.
+looking away closes it. A mini-map down the right edge shows the groups as
+markers; click one to teleport there. After 30s still, the movement keys are
+highlighted.
 
 On a touch device: **drag** to look, **tap** to open, the on-screen **pad** to
 move, and **enable tilt** to look with the gyroscope. A **LOG IN** panel sits

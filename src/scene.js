@@ -31,6 +31,9 @@ class WttmScene extends HTMLElement {
     this.pills = [];
     this.interactives = [];
     this.cardTextures = new Map();
+    this.minimapEl = null;
+    this.minimapYou = null;
+    this.minimapSpan = null;
     this.hovered = null;
     this.pointer = new THREE.Vector2();
     this.yaw = 0;
@@ -265,6 +268,12 @@ class WttmScene extends HTMLElement {
     }
     for (const tex of this.cardTextures.values()) tex.dispose();
     this.cardTextures.clear();
+    if (this.minimapEl) {
+      this.minimapEl.remove();
+      this.minimapEl = null;
+      this.minimapYou = null;
+      this.minimapSpan = null;
+    }
     for (const header of this.headers) this.scene.remove(header);
     this.panels = [];
     this.headers = [];
@@ -330,6 +339,7 @@ class WttmScene extends HTMLElement {
       this.panels.push({ mesh, ring, base: { x: p.x, y: p.y, z: p.z } });
     }
 
+    this.buildMinimap();
     if (!this.loggedIn) this.addLoginPanel();
   }
 
@@ -493,6 +503,7 @@ class WttmScene extends HTMLElement {
     this.animatePills(dt);
     this.animateStage(dt, hit);
     this.animateCamera(dt);
+    this.updateMinimap();
 
     this.renderer.render(this.scene, this.camera);
   }
@@ -560,6 +571,63 @@ class WttmScene extends HTMLElement {
       mesh.material.map = mesh.userData.collapsedMap;
     }
     mesh.material.needsUpdate = true;
+  }
+
+  // A vertical strip of the corridor: one marker per group, and a dot for where
+  // the walker is. Clicking a marker teleports to that group.
+  buildMinimap() {
+    if (this.minimapEl) this.minimapEl.remove();
+    const places = this.def?.places ?? [];
+    const el = document.createElement("div");
+    el.className = "minimap";
+    el.addEventListener("pointerdown", (e) => e.stopPropagation());
+    el.addEventListener("pointerup", (e) => e.stopPropagation());
+    const track = document.createElement("div");
+    track.className = "minimap-track";
+
+    const zMax = this.def.bounds.zMax;
+    const zMin = this.def.bounds.zMin;
+    const span = zMax - zMin || 1;
+    for (const place of places) {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.className = "minimap-place";
+      dot.style.top = `${((zMax - place.z) / span) * 100}%`;
+      const label = document.createElement("span");
+      label.className = "minimap-label";
+      label.textContent = place.label;
+      dot.appendChild(label);
+      dot.addEventListener("click", (event) => {
+        event.stopPropagation();
+        this.teleport(place);
+      });
+      track.appendChild(dot);
+    }
+
+    const you = document.createElement("div");
+    you.className = "minimap-you";
+    track.appendChild(you);
+    el.appendChild(track);
+    this.appendChild(el);
+    this.minimapEl = el;
+    this.minimapYou = you;
+    this.minimapSpan = { zMax, span };
+    this.updateMinimap();
+  }
+
+  updateMinimap() {
+    if (!this.minimapYou || !this.minimapSpan) return;
+    const { zMax, span } = this.minimapSpan;
+    this.minimapYou.style.top = `${clamp(((zMax - this.camera.position.z) / span) * 100, 0, 100)}%`;
+  }
+
+  teleport(place) {
+    this.vel.set(0, 0);
+    this.camera.position.x = place.x;
+    this.camera.position.z = place.z + 11;
+    this.yaw = 0;
+    this.pitch = 0;
+    this.active();
   }
 
   animateCamera(dt) {

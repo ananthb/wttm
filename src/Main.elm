@@ -752,14 +752,15 @@ faviconImg app =
                 app.icon
 
             else
-                originOf app.url
-                    |> (\origin ->
-                            if String.isEmpty origin then
-                                ""
+                let
+                    host =
+                        hostOf app.url
+                in
+                if String.isEmpty host || localHost host then
+                    ""
 
-                            else
-                                origin ++ "/favicon.ico"
-                       )
+                else
+                    originOf app.url ++ "/favicon.ico"
     in
     if String.isEmpty source then
         text ""
@@ -782,6 +783,76 @@ originOf url =
 
         _ ->
             ""
+
+
+hostOf : String -> String
+hostOf url =
+    case String.split "://" url of
+        _ :: rest :: _ ->
+            rest
+                |> String.split "/"
+                |> List.head
+                |> Maybe.withDefault rest
+                |> String.split ":"
+                |> List.head
+                |> Maybe.withDefault ""
+
+        _ ->
+            ""
+
+
+-- A favicon fetched from a tailnet or LAN host is a request to the local
+-- network, which browsers flag, so those keep the emoji (a catalog `favicon`
+-- still overrides).
+localHost : String -> Bool
+localHost host =
+    let
+        h =
+            String.toLower host
+
+        suffix =
+            List.any (\s -> String.endsWith s h)
+                [ ".local", ".localdomain", ".internal", ".lan", ".home.arpa", ".ts.net", ".tailscale.net" ]
+    in
+    suffix || privateIp (String.split "." h)
+
+
+privateIp : List String -> Bool
+privateIp octets =
+    case octets of
+        "10" :: _ ->
+            True
+
+        "127" :: _ ->
+            True
+
+        "0" :: _ ->
+            True
+
+        "192" :: "168" :: _ ->
+            True
+
+        "169" :: "254" :: _ ->
+            True
+
+        "172" :: second :: _ ->
+            inRange 16 31 second
+
+        "100" :: second :: _ ->
+            inRange 64 127 second
+
+        _ ->
+            False
+
+
+inRange : Int -> Int -> String -> Bool
+inRange lo hi value =
+    case String.toInt value of
+        Just n ->
+            n >= lo && n <= hi
+
+        Nothing ->
+            False
 
 
 

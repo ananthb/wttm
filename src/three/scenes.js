@@ -1,7 +1,22 @@
 import * as THREE from "three";
 import * as util from "./util.js";
 
-const { GREEN, RED, CYAN, box, cyl, layoutCategory } = util;
+const {
+  GREEN,
+  RED,
+  CYAN,
+  box,
+  cyl,
+  layoutCategory,
+  asphaltTexture,
+  plateTexture,
+  panelTexture,
+  brickTexture,
+  plasterTexture,
+  stoneTexture,
+  woodTexture,
+  gridTexture,
+} = util;
 
 // One scene per group, joined end to end so the walker travels between them.
 // Each scene is built in local space with its back wall at z = BACK and the
@@ -48,30 +63,30 @@ function windows(tint = 0xffd27a, density = 0.45) {
   return tex;
 }
 
-function ground(size, color, y = -2) {
+function ground(size, map) {
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(size, size),
-    new THREE.MeshStandardMaterial({ color, roughness: 1 })
+    new THREE.MeshStandardMaterial({ map, color: 0x9aa4b0, roughness: 0.95, metalness: 0.05 })
   );
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = y;
+  mesh.position.y = -2;
   return mesh;
 }
 
-function floorPatch(color, { x = 0, z = -10, w = 40, d = 30 } = {}) {
+function floorPatch(map, { x = 0, z = -10, w = 40, d = 30, color = 0xffffff, roughness = 1, metalness = 0 } = {}) {
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(w, d),
-    new THREE.MeshStandardMaterial({ color, roughness: 1 })
+    new THREE.MeshStandardMaterial({ map, color, roughness, metalness })
   );
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.set(x, -1.98, z);
   return mesh;
 }
 
-function sideWalls(color, { x = 20, h = 12, d = 34 } = {}) {
+function sideWalls(map, { x = 20, h = 12, d = 34, color = 0xffffff } = {}) {
   const group = new THREE.Group();
   for (const sx of [-x, x]) {
-    const w = box(0.6, h, d, color);
+    const w = box(0.6, h, d, color, { map });
     w.position.set(sx, h / 2 - 2, -12);
     group.add(w);
   }
@@ -79,12 +94,12 @@ function sideWalls(color, { x = 20, h = 12, d = 34 } = {}) {
 }
 
 // The wall between two scenes, with a 6-wide doorway at the centre.
-function backWall(width, height, color) {
+function backWall(width, height, map, color = 0xffffff) {
   const group = new THREE.Group();
   const gap = 6;
   const w = Math.max(0.1, (width - gap) / 2);
   for (const sx of [-1, 1]) {
-    const panel = box(w, height, 0.6, color);
+    const panel = box(w, height, 0.6, color, { map });
     panel.position.set(sx * (gap / 2 + w / 2), height / 2 - 2, BACK);
     group.add(panel);
   }
@@ -102,8 +117,8 @@ function prop(mesh, text) {
   return mesh;
 }
 
-function crate(x, y, z, s, color = 0x16242a) {
-  const m = box(s, s, s, color);
+function crate(x, y, z, s, color = 0x16242a, map = null) {
+  const m = box(s, s, s, color, { map });
   m.position.set(x, y, z);
   m.rotation.y = Math.random() * Math.PI;
   return m;
@@ -210,9 +225,10 @@ function corridor(env, zTop, zBottom) {
   for (const x of [-13, -12.4, 12.4, 13]) {
     env.add(pipe(midZ, { x, y: x < 0 ? 7.3 : 6.9, len: length, r: 0.16, color: 0x1a242e }));
   }
+  const beamTex = panelTexture([12, 1]);
   let n = 0;
   for (let z = zTop - 6; z > zBottom + 2; z -= 9) {
-    const beam = box(31, 0.35, 0.55, 0x11161e);
+    const beam = box(31, 0.35, 0.55, 0x11161e, { map: beamTex });
     beam.position.set(0, 8.9, z);
     env.add(beam);
     const bar = box(15, 0.12, 0.26, CYAN, { emissive: true });
@@ -260,12 +276,13 @@ function dust(env, zTop, zBottom, color = 0x9fd8c0) {
 // 1. The Street: night, neon, rain.
 function street() {
   const env = new THREE.Group();
+  env.add(floorPatch(asphaltTexture([12, 10]), { z: -10, color: 0x8a94a0 }));
   const tex = windows(0xffd27a);
   const neons = [0xff2f6d, 0x2ff5ff, 0xffd23b, 0x9b5cff];
   for (let i = 0; i < 7; i++) {
     const side = i % 2 === 0 ? -1 : 1;
     const h = 12 + Math.random() * 20;
-    const b = box(7, h, 7, 0x0a0e14);
+    const b = box(7, h, 7, 0x0a0e14, { map: brickTexture([3, Math.max(2, Math.round(h / 6))]) });
     b.position.set(side * (21 + Math.random() * 8), h / 2 - 2, 2 - i * 4.5);
     const win = new THREE.Mesh(
       new THREE.PlaneGeometry(6.4, h - 1),
@@ -293,7 +310,7 @@ function street() {
   for (let i = 0; i < 7; i++) {
     const sx = i % 2 === 0 ? -1 : 1;
     const z = 1 - i * 4.5;
-    const shop = box(0.7, 3.6, 9, 0x0c1218);
+    const shop = box(0.7, 3.6, 9, 0x0c1218, { map: brickTexture([3, 1]) });
     shop.position.set(sx * 17.5, -0.2, z);
     env.add(shop);
     for (let w = 0; w < 3; w++) {
@@ -315,7 +332,7 @@ function street() {
     puddle.position.set((Math.random() - 0.5) * 18, -1.9, -3 - i * 5);
     env.add(puddle);
   }
-  env.add(backWall(44, 16, 0x0a0e14));
+  env.add(backWall(44, 16, brickTexture([12, 5]), 0x9aa0a6));
   env.add(point(0x8fc8ff, 11, 80, 0, 9, -6));
   env.add(point(CYAN, 13, 42, CARD_X, 4.5, CARD_LOCAL_Z + 3));
 
@@ -355,16 +372,17 @@ function street() {
 // 2. The Lobby: cold marble columns and slow bullets.
 function lobby() {
   const env = new THREE.Group();
+  const marbleTex = marbleTexture();
   const marble = new THREE.Mesh(
     new THREE.PlaneGeometry(42, 36),
-    new THREE.MeshStandardMaterial({ map: marbleTexture(), roughness: 0.45, metalness: 0.1 })
+    new THREE.MeshStandardMaterial({ map: marbleTex, roughness: 0.45, metalness: 0.1 })
   );
   marble.rotation.x = -Math.PI / 2;
   marble.position.set(0, -1.97, -10);
   env.add(marble);
   for (const side of [-17, 17]) {
     for (let i = 0; i < 6; i++) {
-      const column = cyl(0.7, 0.8, 11, 0xd8d2c4);
+      const column = cyl(0.7, 0.8, 11, 0xd8d2c4, { map: marbleTex });
       column.position.set(side, 3.5 - 2, 2 - i * 5);
       env.add(column);
       const base = box(1.4, 0.4, 1.4, 0xb8b2a4);
@@ -372,7 +390,7 @@ function lobby() {
       env.add(base);
     }
   }
-  env.add(backWall(40, 16, 0x1a1e26));
+  env.add(backWall(40, 16, panelTexture([12, 5]), 0x8a929c));
   env.add(point(0xbcd4ff, 28, 120, 0, 10, -8));
   env.add(point(0x9fb8e0, 11, 90, 0, 4, 2));
 
@@ -436,13 +454,13 @@ function lobby() {
 function construct() {
   const env = new THREE.Group();
   const white = 0xf4f6f4;
-  env.add(floorPatch(white, { z: -8 }));
+  env.add(floorPatch(gridTexture([10, 8]), { z: -8, color: 0xffffff }));
   const grid = new THREE.GridHelper(80, 40, 0xcfd6d2, 0xcfd6d2);
   grid.material.transparent = true;
   grid.material.opacity = 0.35;
   grid.position.y = -1.96;
   env.add(grid);
-  env.add(backWall(46, 20, white));
+  env.add(backWall(46, 20, gridTexture([14, 6]), white));
   env.add(point(0xffffff, 32, 110, 0, 7, -4));
   env.add(point(0xffffff, 22, 90, -16, 9, -14));
   env.add(point(0xffffff, 22, 90, 16, 9, -14));
@@ -502,9 +520,9 @@ function construct() {
 // 4. The Nebuchadnezzar: cold hull, red alert, banks of green monitors.
 function ship() {
   const env = new THREE.Group();
-  env.add(floorPatch(0x090c10, { z: -10 }));
-  env.add(sideWalls(0x0c1418, { x: 20, h: 12, d: 34 }));
-  env.add(backWall(42, 12, 0x0a1116));
+  env.add(floorPatch(plateTexture([8, 6]), { z: -10, color: 0x8a94a0, metalness: 0.6, roughness: 0.5 }));
+  env.add(sideWalls(panelTexture([8, 3]), { x: 20, h: 12, d: 34, color: 0x9fb0bd }));
+  env.add(backWall(42, 12, panelTexture([10, 3]), 0x9fb0bd));
 
   for (const sx of [-19.4, 19.4]) {
     for (let i = 0; i < 4; i++) {
@@ -521,6 +539,7 @@ function ship() {
     pipe.position.set(sx, 6.6, -10);
     env.add(pipe);
   }
+  const crateTex = panelTexture([1, 1]);
   for (let i = 0; i < 8; i++) {
     env.add(
       crate(
@@ -528,7 +547,8 @@ function ship() {
         -1.2,
         -3 - i * 3,
         1 + Math.random() * 0.9,
-        0x16242a
+        0x16242a,
+        crateTex
       )
     );
   }
@@ -567,11 +587,12 @@ function ship() {
 // 5. The Oracle's Apartment: warm and lived-in, the red phone.
 function oracle() {
   const env = new THREE.Group();
-  env.add(floorPatch(0x34261a, { z: -10 }));
-  env.add(sideWalls(0x4a3826, { x: 18, h: 12, d: 32 }));
-  env.add(backWall(36, 12, 0x5a4531));
+  env.add(floorPatch(woodTexture([10, 8]), { z: -10, color: 0x9a7f5f }));
+  env.add(sideWalls(plasterTexture([8, 3]), { x: 18, h: 12, d: 32, color: 0x9a8b74 }));
+  env.add(backWall(36, 12, plasterTexture([10, 4]), 0x9a8b74));
 
-  const counter = box(10, 1, 1.4, 0x4a3826);
+  const wood = woodTexture([2, 1]);
+  const counter = box(10, 1, 1.4, 0x4a3826, { map: wood });
   counter.position.set(-13, 0.6, -1);
   env.add(counter);
   const sofa = box(4.6, 1, 1.6, 0x5a3b2a);
@@ -586,7 +607,7 @@ function oracle() {
   lamp2.position.set(9, 0.9, 4);
   env.add(lamp2, point(0xffc98a, 18, 54, 9, 3, 4), point(0xffdcae, 11, 70, 0, 5, -4));
 
-  const shelf = box(0.7, 5.2, 6, 0x3a2717);
+  const shelf = box(0.7, 5.2, 6, 0x3a2717, { map: wood });
   shelf.position.set(-16.5, 0.5, -4);
   env.add(shelf);
   for (let i = 0; i < 5; i++) {
@@ -612,7 +633,7 @@ function oracle() {
       env.add(art);
     }
   }
-  const counter2 = box(8, 1.1, 1.6, 0x4a3826);
+  const counter2 = box(8, 1.1, 1.6, 0x4a3826, { map: wood });
   counter2.position.set(-10, 0.5, -13);
   env.add(counter2);
   for (let i = 0; i < 5; i++) {
@@ -638,14 +659,15 @@ function oracle() {
 // 6. The Keymaker's Room: amber, shelves and hundreds of hanging keys.
 function keymaker() {
   const env = new THREE.Group();
-  env.add(floorPatch(0x1c1208, { z: -10 }));
-  env.add(sideWalls(0x2a1a0d, { x: 19, h: 14, d: 34 }));
-  env.add(backWall(40, 14, 0x241609));
+  env.add(floorPatch(stoneTexture([10, 8]), { z: -10, color: 0x9a8060 }));
+  env.add(sideWalls(stoneTexture([8, 4]), { x: 19, h: 14, d: 34, color: 0x9a8060 }));
+  env.add(backWall(40, 14, stoneTexture([12, 5]), 0x8a7050));
 
+  const wood = woodTexture([1, 6]);
   const gold = new THREE.MeshStandardMaterial({ color: 0xd9b26a, metalness: 0.85, roughness: 0.28 });
   for (let i = 0; i < 5; i++) {
     for (const sx of [-18.4, 18.4]) {
-      const shelf = box(0.6, 0.2, 24, 0x3a2717);
+      const shelf = box(0.6, 0.2, 24, 0x3a2717, { map: wood });
       shelf.position.set(sx, 1 + i * 1.6, -10);
       env.add(shelf);
     }
@@ -669,7 +691,7 @@ function keymaker() {
   const glow = point(0xffb457, 20, 64, 0, 5, -8);
   env.add(glow, point(0xffcf8a, 11, 70, 0, 6, -4));
 
-  const bench = box(6, 1, 2, 0x3a2717);
+  const bench = box(6, 1, 2, 0x3a2717, { map: wood });
   bench.position.set(-14, 0.4, -6);
   env.add(bench);
   for (let i = 0; i < 4; i++) {
@@ -709,7 +731,7 @@ function buildWorld(ctx) {
   const places = [];
   const animators = [];
 
-  env.add(ground(500, 0x0b1018));
+  env.add(ground(500, asphaltTexture([90, 90])));
   env.add(new THREE.AmbientLight(0x2b3644, 1.5));
   env.add(new THREE.HemisphereLight(0x53617c, 0x0b0f14, 0.75));
 

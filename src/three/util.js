@@ -288,16 +288,230 @@ export function makeLoginPanel(subtitle) {
 }
 
 // A tiny helper for scenes: an unlit, possibly emissive-looking box.
-export function box(w, h, d, color, { emissive = false, opacity = 1 } = {}) {
+export function box(w, h, d, color, { emissive = false, opacity = 1, map = null, roughness = 0.85, metalness = 0.15 } = {}) {
   const mat = emissive
-    ? new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity })
-    : new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.15, transparent: opacity < 1, opacity });
+    ? new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity, map })
+    : new THREE.MeshStandardMaterial({ color, roughness, metalness, transparent: opacity < 1, opacity, map });
   return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
 }
 
-export function cyl(rt, rb, h, color, { emissive = false, opacity = 1 } = {}) {
+export function cyl(rt, rb, h, color, { emissive = false, opacity = 1, map = null, roughness = 0.7, metalness = 0.3 } = {}) {
   const mat = emissive
-    ? new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity })
-    : new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.3, transparent: opacity < 1, opacity });
+    ? new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity, map })
+    : new THREE.MeshStandardMaterial({ color, roughness, metalness, transparent: opacity < 1, opacity, map });
   return new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 20), mat);
+}
+
+// Procedural surfaces. Nothing is loaded from disk: each is drawn once to a
+// canvas and wrapped in a texture, so a scene reads as material rather than as
+// flat-coloured boxes. The canvas is cached; the repeat is per call.
+const surfaceCanvases = {};
+
+function surface(key, size, draw, repeat) {
+  let canvas = surfaceCanvases[key];
+  if (!canvas) {
+    canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    draw(canvas.getContext("2d"), size);
+    surfaceCanvases[key] = canvas;
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeat[0], repeat[1]);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+function speckle(ctx, size, count, spread = 0) {
+  for (let i = 0; i < count; i++) {
+    const g = spread ? Math.random() * spread : 0;
+    ctx.fillStyle = `rgba(${150 + g},${160 + g},${170 + g},${0.02 + Math.random() * 0.05})`;
+    ctx.fillRect(Math.random() * size, Math.random() * size, 1.6, 1.6);
+  }
+}
+
+function drawAsphalt(ctx, s) {
+  ctx.fillStyle = "#10151b";
+  ctx.fillRect(0, 0, s, s);
+  speckle(ctx, s, 5000, 40);
+  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 8; i++) {
+    ctx.beginPath();
+    let x = Math.random() * s;
+    let y = Math.random() * s;
+    ctx.moveTo(x, y);
+    for (let j = 0; j < 3; j++) {
+      x += (Math.random() - 0.5) * 70;
+      y += (Math.random() - 0.5) * 70;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawPlate(ctx, s) {
+  ctx.fillStyle = "#20262e";
+  ctx.fillRect(0, 0, s, s);
+  speckle(ctx, s, 1500, 30);
+  ctx.strokeStyle = "#141920";
+  ctx.lineWidth = 4;
+  for (let i = 0; i <= s; i += 64) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i, s);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, i);
+    ctx.lineTo(s, i);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#39434e";
+  for (let x = 32; x < s; x += 64)
+    for (let y = 32; y < s; y += 64) {
+      ctx.beginPath();
+      ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+}
+
+function drawPanel(ctx, s) {
+  ctx.fillStyle = "#1a222b";
+  ctx.fillRect(0, 0, s, s);
+  speckle(ctx, s, 2000, 20);
+  ctx.strokeStyle = "#0e151c";
+  ctx.lineWidth = 3;
+  for (let i = 0; i <= s; i += 64) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i, s);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, i);
+    ctx.lineTo(s, i);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#2a3540";
+  for (let x = 12; x < s; x += 64)
+    for (let y = 12; y < s; y += 64) {
+      ctx.beginPath();
+      ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+      ctx.arc(x + 40, y, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  ctx.fillStyle = "rgba(90,200,160,0.12)";
+  for (let i = 0; i < 10; i++) ctx.fillRect((Math.random() * s) | 0, (Math.random() * s) | 0, 30 + Math.random() * 40, 6);
+}
+
+function drawBrick(ctx, s) {
+  ctx.fillStyle = "#241f1a";
+  ctx.fillRect(0, 0, s, s);
+  const bw = 64;
+  const bh = 26;
+  for (let row = 0, y = 0; y < s; y += bh, row++) {
+    const off = row % 2 ? -bw / 2 : 0;
+    for (let x = off; x < s; x += bw) {
+      const v = 60 + Math.random() * 40;
+      ctx.fillStyle = `rgb(${v + 20},${v},${v - 10})`;
+      ctx.fillRect(x + 1, y + 1, bw - 2, bh - 2);
+    }
+  }
+  speckle(ctx, s, 1500, 15);
+}
+
+function drawPlaster(ctx, s) {
+  ctx.fillStyle = "#574636";
+  ctx.fillRect(0, 0, s, s);
+  speckle(ctx, s, 4000, 10);
+  ctx.fillStyle = "rgba(0,0,0,0.08)";
+  for (let i = 0; i < 40; i++) ctx.fillRect(Math.random() * s, Math.random() * s, 20 + Math.random() * 60, 8 + Math.random() * 20);
+}
+
+function drawStone(ctx, s) {
+  ctx.fillStyle = "#1e1509";
+  ctx.fillRect(0, 0, s, s);
+  const bw = 84;
+  const bh = 42;
+  for (let row = 0, y = 0; y < s; y += bh, row++) {
+    const off = row % 2 ? -bw / 2 : 0;
+    for (let x = off; x < s; x += bw) {
+      const v = 40 + Math.random() * 35;
+      ctx.fillStyle = `rgb(${v + 30},${v + 12},${v - 6})`;
+      ctx.fillRect(x + 2, y + 2, bw - 4, bh - 4);
+    }
+  }
+  speckle(ctx, s, 2000, 20);
+}
+
+function drawWood(ctx, s) {
+  ctx.fillStyle = "#3a2717";
+  ctx.fillRect(0, 0, s, s);
+  for (let x = 0; x < s; x += 42) {
+    const v = 45 + Math.random() * 25;
+    ctx.fillStyle = `rgb(${v + 30},${v + 10},${v - 4})`;
+    ctx.fillRect(x + 1, 0, 40, s);
+    ctx.strokeStyle = "rgba(0,0,0,0.25)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, 0, 40, s);
+  }
+  ctx.strokeStyle = "rgba(0,0,0,0.15)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 120; i++) {
+    const x = Math.random() * s;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + (Math.random() - 0.5) * 8, s);
+    ctx.stroke();
+  }
+}
+
+function drawGrid(ctx, s) {
+  ctx.fillStyle = "#eef1ee";
+  ctx.fillRect(0, 0, s, s);
+  ctx.strokeStyle = "#c6ccc7";
+  ctx.lineWidth = 2;
+  for (let i = 0; i <= s; i += 32) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i, s);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, i);
+    ctx.lineTo(s, i);
+    ctx.stroke();
+  }
+}
+
+export function asphaltTexture(repeat = [1, 1]) {
+  return surface("asphalt", 256, drawAsphalt, repeat);
+}
+
+export function plateTexture(repeat = [1, 1]) {
+  return surface("plate", 256, drawPlate, repeat);
+}
+
+export function panelTexture(repeat = [1, 1]) {
+  return surface("panel", 256, drawPanel, repeat);
+}
+
+export function brickTexture(repeat = [1, 1]) {
+  return surface("brick", 256, drawBrick, repeat);
+}
+
+export function plasterTexture(repeat = [1, 1]) {
+  return surface("plaster", 256, drawPlaster, repeat);
+}
+
+export function stoneTexture(repeat = [1, 1]) {
+  return surface("stone", 256, drawStone, repeat);
+}
+
+export function woodTexture(repeat = [1, 1]) {
+  return surface("wood", 256, drawWood, repeat);
+}
+
+export function gridTexture(repeat = [1, 1]) {
+  return surface("grid", 256, drawGrid, repeat);
 }

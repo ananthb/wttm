@@ -34,6 +34,8 @@ class WttmScene extends HTMLElement {
     this.minimapEl = null;
     this.minimapYou = null;
     this.minimapSpan = null;
+    this.colliders = [];
+    this.loop = null;
     this.hovered = null;
     this.pointer = new THREE.Vector2();
     this.yaw = 0;
@@ -299,6 +301,8 @@ class WttmScene extends HTMLElement {
     const catalog = this.catalog ?? { categories: [] };
     const def = getScene(id)({ THREE, catalog, util });
     this.def = def;
+    this.colliders = def.colliders ?? [];
+    this.loop = def.loop ?? null;
     this.env = def.env;
     this.scene.add(def.env);
     this.scene.background = new THREE.Color(def.background);
@@ -672,11 +676,35 @@ class WttmScene extends HTMLElement {
     this.vel.y = lerp(this.vel.y, az, 0.18);
 
     const bounds = this.def.bounds;
-    this.camera.position.x = clamp(this.camera.position.x + this.vel.x * dt, -bounds.x, bounds.x);
-    this.camera.position.z = clamp(this.camera.position.z + this.vel.y * dt, bounds.zMin, bounds.zMax);
+    const radius = 0.55;
+    const cx = this.camera.position.x;
+    const cz = this.camera.position.z;
+    let nx = clamp(cx + this.vel.x * dt, -bounds.x, bounds.x);
+    let nz = cz + this.vel.y * dt;
+
+    // Resolve each axis on its own so a wall stops the walker without sticking.
+    if (this.blocked(nx, cz, radius)) nx = cx;
+    if (this.blocked(nx, nz, radius)) nz = cz;
+
+    // The corridor loops: past the far end you come back in at the near end.
+    if (this.loop) {
+      const period = this.loop.near - this.loop.far;
+      while (nz < this.loop.far) nz += period;
+      while (nz > this.loop.near) nz -= period;
+    }
+
+    this.camera.position.x = nx;
+    this.camera.position.z = nz;
     const bob = reduced ? 0 : Math.sin(this.time * 8) * Math.min(0.04, Math.hypot(this.vel.x, this.vel.y) * 0.006);
     this.camera.position.y = this.def.spawn[1] + bob;
     this.camera.quaternion.copy(q);
+  }
+
+  blocked(x, z, r) {
+    for (const c of this.colliders) {
+      if (x > c.x0 - r && x < c.x1 + r && z > c.z0 - r && z < c.z1 + r) return true;
+    }
+    return false;
   }
 }
 

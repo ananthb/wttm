@@ -72,8 +72,9 @@ inside it is first-person: **W A S D** or the **arrow keys** to move, **mouse**
 to look (click once to capture the pointer), **click** to open what the
 crosshair is on, **Esc** to release. Looking at a card expands its description;
 looking away closes it. A mini-map down the right edge shows the groups as
-markers; click one to teleport there. After 30s still, the movement keys are
-highlighted.
+markers; click one to teleport there. Walls and large objects block the walker,
+and the corridor loops: past the last scene you come back in at the first.
+After 30s still, the movement keys are highlighted.
 
 On a touch device: **drag** to look, **tap** to open, the on-screen **pad** to
 move, and **enable tilt** to look with the gyroscope. A **LOG IN** panel sits

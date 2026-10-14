@@ -93,17 +93,44 @@ function sideWalls(map, { x = 20, h = 12, d = 34, color = 0xffffff } = {}) {
   return group;
 }
 
-// The wall between two scenes, with a 6-wide doorway at the centre.
-function backWall(width, height, map, color = 0xffffff) {
+// A 2D footprint the walker cannot enter, in the scene's local space.
+function solid(cols, cx, cz, hx, hz) {
+  if (cols) cols.push({ x0: cx - hx, x1: cx + hx, z0: cz - hz, z1: cz + hz });
+}
+
+// The wall between two scenes, with a 6-wide doorway at the centre. The two
+// panels are solid; the doorway is the only way through.
+function backWall(width, height, map, color = 0xffffff, cols) {
   const group = new THREE.Group();
   const gap = 6;
   const w = Math.max(0.1, (width - gap) / 2);
   for (const sx of [-1, 1]) {
+    const cx = sx * (gap / 2 + w / 2);
     const panel = box(w, height, 0.6, color, { map });
-    panel.position.set(sx * (gap / 2 + w / 2), height / 2 - 2, BACK);
+    panel.position.set(cx, height / 2 - 2, BACK);
     group.add(panel);
+    solid(cols, cx, BACK, w / 2, 0.5);
   }
   return group;
+}
+
+// A lit gateway frame, placed at each end where the corridor loops.
+function gate(z, color) {
+  const g = new THREE.Group();
+  for (const x of [-7.6, 7.6]) {
+    const post = box(0.45, 7, 0.45, 0x1a232c);
+    post.position.set(x, 1.5, z);
+    const trim = box(0.5, 7, 0.16, color, { emissive: true });
+    trim.position.set(x, 1.5, z - 0.3);
+    g.add(post, trim);
+  }
+  const top = box(15.8, 0.45, 0.45, 0x1a232c);
+  top.position.set(0, 5, z);
+  const trim = box(15.8, 0.16, 0.18, color, { emissive: true });
+  trim.position.set(0, 4.72, z - 0.3);
+  g.add(top, trim);
+  g.add(point(color, 8, 30, 0, 4.6, z - 0.5));
+  return g;
 }
 
 function point(color, intensity, distance, x, y, z) {
@@ -214,7 +241,7 @@ function marbleTexture() {
 
 // Matrix metal that runs the whole length: floor guide strips, overhead beams
 // and pipes, and pillars, so the walk between scenes is never a void.
-function corridor(env, zTop, zBottom) {
+function corridor(env, zTop, zBottom, colliders) {
   const length = zTop - zBottom;
   const midZ = (zTop + zBottom) / 2;
   for (const x of [-4.6, 4.6]) {
@@ -239,6 +266,7 @@ function corridor(env, zTop, zBottom) {
       const post = cyl(0.13, 0.16, 9.6, 0x161d26);
       post.position.set(x, 2.9, z);
       env.add(post);
+      if (colliders) colliders.push({ x0: x - 0.3, x1: x + 0.3, z0: z - 0.3, z1: z + 0.3 });
     }
     if (n % 2 === 0) env.add(cable(0, 7.7, z - 4, 26, 0x1c2630));
     n++;
@@ -274,7 +302,7 @@ function dust(env, zTop, zBottom, color = 0x9fd8c0) {
 }
 
 // 1. The Street: night, neon, rain.
-function street() {
+function street(cols) {
   const env = new THREE.Group();
   env.add(floorPatch(asphaltTexture([12, 10]), { z: -10, color: 0x8a94a0 }));
   const tex = windows(0xffd27a);
@@ -332,7 +360,7 @@ function street() {
     puddle.position.set((Math.random() - 0.5) * 18, -1.9, -3 - i * 5);
     env.add(puddle);
   }
-  env.add(backWall(44, 16, brickTexture([12, 5]), 0x9aa0a6));
+  env.add(backWall(44, 16, brickTexture([12, 5]), 0x9aa0a6, cols));
   env.add(point(0x8fc8ff, 11, 80, 0, 9, -6));
   env.add(point(CYAN, 13, 42, CARD_X, 4.5, CARD_LOCAL_Z + 3));
 
@@ -370,7 +398,7 @@ function street() {
 }
 
 // 2. The Lobby: cold marble columns and slow bullets.
-function lobby() {
+function lobby(cols) {
   const env = new THREE.Group();
   const marbleTex = marbleTexture();
   const marble = new THREE.Mesh(
@@ -390,7 +418,7 @@ function lobby() {
       env.add(base);
     }
   }
-  env.add(backWall(40, 16, panelTexture([12, 5]), 0x8a929c));
+  env.add(backWall(40, 16, panelTexture([12, 5]), 0x8a929c, cols));
   env.add(point(0xbcd4ff, 28, 120, 0, 10, -8));
   env.add(point(0x9fb8e0, 11, 90, 0, 4, 2));
 
@@ -451,7 +479,7 @@ function lobby() {
 }
 
 // 3. The Construct: blinding white, a grid, nothing else.
-function construct() {
+function construct(cols) {
   const env = new THREE.Group();
   const white = 0xf4f6f4;
   env.add(floorPatch(gridTexture([10, 8]), { z: -8, color: 0xffffff }));
@@ -460,7 +488,7 @@ function construct() {
   grid.material.opacity = 0.35;
   grid.position.y = -1.96;
   env.add(grid);
-  env.add(backWall(46, 20, gridTexture([14, 6]), white));
+  env.add(backWall(46, 20, gridTexture([14, 6]), white, cols));
   env.add(point(0xffffff, 32, 110, 0, 7, -4));
   env.add(point(0xffffff, 22, 90, -16, 9, -14));
   env.add(point(0xffffff, 22, 90, 16, 9, -14));
@@ -518,11 +546,11 @@ function construct() {
 }
 
 // 4. The Nebuchadnezzar: cold hull, red alert, banks of green monitors.
-function ship() {
+function ship(cols) {
   const env = new THREE.Group();
   env.add(floorPatch(plateTexture([8, 6]), { z: -10, color: 0x8a94a0, metalness: 0.6, roughness: 0.5 }));
   env.add(sideWalls(panelTexture([8, 3]), { x: 20, h: 12, d: 34, color: 0x9fb0bd }));
-  env.add(backWall(42, 12, panelTexture([10, 3]), 0x9fb0bd));
+  env.add(backWall(42, 12, panelTexture([10, 3]), 0x9fb0bd, cols));
 
   for (const sx of [-19.4, 19.4]) {
     for (let i = 0; i < 4; i++) {
@@ -541,16 +569,11 @@ function ship() {
   }
   const crateTex = panelTexture([1, 1]);
   for (let i = 0; i < 8; i++) {
-    env.add(
-      crate(
-        (Math.random() < 0.5 ? -1 : 1) * (13 + Math.random() * 4),
-        -1.2,
-        -3 - i * 3,
-        1 + Math.random() * 0.9,
-        0x16242a,
-        crateTex
-      )
-    );
+    const cx = (Math.random() < 0.5 ? -1 : 1) * (13 + Math.random() * 4);
+    const cz = -3 - i * 3;
+    const s = 1 + Math.random() * 0.9;
+    env.add(crate(cx, -1.2, cz, s, 0x16242a, crateTex));
+    solid(cols, cx, cz, s / 2, s / 2);
   }
   for (const sx of [-15.5, 15.5]) {
     for (let i = 0; i < 3; i++) {
@@ -585,19 +608,21 @@ function ship() {
 }
 
 // 5. The Oracle's Apartment: warm and lived-in, the red phone.
-function oracle() {
+function oracle(cols) {
   const env = new THREE.Group();
   env.add(floorPatch(woodTexture([10, 8]), { z: -10, color: 0x9a7f5f }));
   env.add(sideWalls(plasterTexture([8, 3]), { x: 18, h: 12, d: 32, color: 0x9a8b74 }));
-  env.add(backWall(36, 12, plasterTexture([10, 4]), 0x9a8b74));
+  env.add(backWall(36, 12, plasterTexture([10, 4]), 0x9a8b74, cols));
 
   const wood = woodTexture([2, 1]);
   const counter = box(10, 1, 1.4, 0x4a3826, { map: wood });
   counter.position.set(-13, 0.6, -1);
   env.add(counter);
+  solid(cols, -13, -1, 5, 0.7);
   const sofa = box(4.6, 1, 1.6, 0x5a3b2a);
   sofa.position.set(13, 0.6, -1);
   env.add(sofa);
+  solid(cols, 13, -1, 2.3, 0.8);
   const lamp = cyl(0.12, 0.34, 1.8, 0xffd9a0, { emissive: true });
   lamp.position.set(-6, 0.9, 4);
   env.add(lamp);
@@ -636,6 +661,7 @@ function oracle() {
   const counter2 = box(8, 1.1, 1.6, 0x4a3826, { map: wood });
   counter2.position.set(-10, 0.5, -13);
   env.add(counter2);
+  solid(cols, -10, -13, 4, 0.8);
   for (let i = 0; i < 5; i++) {
     const jar = cyl(0.18, 0.18, 0.5, 0xbfb06a, { emissive: true });
     jar.position.set(-13 + i * 1.4, 1.3, -13);
@@ -657,11 +683,11 @@ function oracle() {
 }
 
 // 6. The Keymaker's Room: amber, shelves and hundreds of hanging keys.
-function keymaker() {
+function keymaker(cols) {
   const env = new THREE.Group();
   env.add(floorPatch(stoneTexture([10, 8]), { z: -10, color: 0x9a8060 }));
   env.add(sideWalls(stoneTexture([8, 4]), { x: 19, h: 14, d: 34, color: 0x9a8060 }));
-  env.add(backWall(40, 14, stoneTexture([12, 5]), 0x8a7050));
+  env.add(backWall(40, 14, stoneTexture([12, 5]), 0x8a7050, cols));
 
   const wood = woodTexture([1, 6]);
   const gold = new THREE.MeshStandardMaterial({ color: 0xd9b26a, metalness: 0.85, roughness: 0.28 });
@@ -694,6 +720,7 @@ function keymaker() {
   const bench = box(6, 1, 2, 0x3a2717, { map: wood });
   bench.position.set(-14, 0.4, -6);
   env.add(bench);
+  solid(cols, -14, -6, 3, 1);
   for (let i = 0; i < 4; i++) {
     const lock = box(0.9, 0.9, 0.5, 0x6a5030);
     lock.position.set(-16.5, 1.2 + i * 1, -6);
@@ -730,6 +757,7 @@ function buildWorld(ctx) {
   const props = [];
   const places = [];
   const animators = [];
+  const colliders = [];
 
   env.add(ground(500, asphaltTexture([90, 90])));
   env.add(new THREE.AmbientLight(0x2b3644, 1.5));
@@ -739,11 +767,13 @@ function buildWorld(ctx) {
     const z = FIRST_Z - i * SPACING;
     const side = i % 2 === 0 ? 1 : -1;
     const id = CATEGORY_THEME[category.id] ?? THEME_ORDER[i % THEME_ORDER.length];
-    const scene = (THEMES[id] ?? THEMES.street)(ctx);
+    const cols = [];
+    const scene = (THEMES[id] ?? THEMES.street)(cols);
     scene.env.position.set(0, 0, z);
     env.add(scene.env);
     if (scene.animate) animators.push(scene.animate);
     for (const p of scene.props ?? []) props.push(p);
+    for (const c of cols) colliders.push({ x0: c.x0, x1: c.x1, z0: c.z0 + z, z1: c.z1 + z });
 
     const laid = layoutCategory(category, { x: side * CARD_X, y: 2.1, z: z + CARD_LOCAL_Z });
     panels.push(...laid.panels);
@@ -754,16 +784,20 @@ function buildWorld(ctx) {
   const lastZ = categories.length ? FIRST_Z - (categories.length - 1) * SPACING : FIRST_Z;
   const zTop = FIRST_Z + 12;
   const zBottom = lastZ - 30;
-  corridor(env, zTop, zBottom);
+  corridor(env, zTop, zBottom, colliders);
   dust(env, zTop, zBottom);
+  env.add(gate(zTop, CYAN));
+  env.add(gate(zBottom, CYAN));
 
   return {
     env,
     layout: { panels, headers },
     places,
+    colliders,
+    loop: { near: zTop, far: zBottom },
     spawn: [0, 1.7, FIRST_Z + 11],
     look: [0, 1.7, FIRST_Z - 8],
-    bounds: { x: 14, zMin: lastZ - 34, zMax: FIRST_Z + 13 },
+    bounds: { x: 14, zMin: zBottom, zMax: zTop },
     fog: [0x02060a, 0.024],
     background: 0x03060c,
     props,

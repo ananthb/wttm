@@ -35,7 +35,7 @@ class WttmScene extends HTMLElement {
     this.minimapYou = null;
     this.minimapSpan = null;
     this.colliders = [];
-    this.loop = null;
+    this.loopBounds = null;
     this.hovered = null;
     this.pointer = new THREE.Vector2();
     this.yaw = 0;
@@ -302,7 +302,7 @@ class WttmScene extends HTMLElement {
     const def = getScene(id)({ THREE, catalog, util });
     this.def = def;
     this.colliders = def.colliders ?? [];
-    this.loop = def.loop ?? null;
+    this.loopBounds = def.loop ?? null;
     this.env = def.env;
     this.scene.add(def.env);
     this.scene.background = new THREE.Color(def.background);
@@ -687,10 +687,10 @@ class WttmScene extends HTMLElement {
     if (this.blocked(nx, nz, radius)) nz = cz;
 
     // The corridor loops: past the far end you come back in at the near end.
-    if (this.loop) {
-      const period = this.loop.near - this.loop.far;
-      while (nz < this.loop.far) nz += period;
-      while (nz > this.loop.near) nz -= period;
+    if (this.loopBounds) {
+      const period = this.loopBounds.near - this.loopBounds.far;
+      while (nz < this.loopBounds.far) nz += period;
+      while (nz > this.loopBounds.near) nz -= period;
     }
 
     this.camera.position.x = nx;

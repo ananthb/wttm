@@ -159,10 +159,13 @@ export async function verifyToken(token, team, aud) {
 async function emailFrom(request, env) {
   if (!env.WTTM_TEAM_DOMAIN) return "";
   const cookie = request.headers.get("Cookie") ?? "";
-  const match = cookie.match(/(?:^|;\s*)CF_Authorization=([^;]+)/);
-  if (!match) return "";
+  const token =
+    ((cookie.match(/(?:^|;\s*)WTTM_SESSION=([^;]+)/) ?? [])[1] || "") ||
+    ((cookie.match(/(?:^|;\s*)CF_Authorization=([^;]+)/) ?? [])[1] || "") ||
+    "";
+  if (!token) return "";
   try {
-    const payload = await verifyToken(match[1], env.WTTM_TEAM_DOMAIN, env.WTTM_ACCESS_AUD);
+    const payload = await verifyToken(token, env.WTTM_TEAM_DOMAIN, env.WTTM_ACCESS_AUD);
     if (payload && payload.email) return String(payload.email).toLowerCase();
   } catch {
     /* treat as anonymous */

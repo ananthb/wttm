@@ -529,7 +529,7 @@ viewColophon model =
 viewAuth : Model -> Html Msg
 viewAuth model =
     if loggedIn model then
-        a [ class "auth", href "/cdn-cgi/access/logout" ] [ text "log out" ]
+        a [ class "auth", href "/logout" ] [ text "log out" ]
 
     else
         a [ class "auth", href "/login" ] [ text "log in" ]

@@ -33,6 +33,19 @@ and never committed here. Both are absent in a clone, so a visitor gets the
 example catalog in `functions/catalog.json`. No emails and no infra hostnames
 live in this repository.
 
+## Demo and instances
+
+<https://wttm-demo.pages.dev> is the public demo. Cloudflare Pages builds it
+from this repository's `main`, with no `WTTM_CATALOG` or `WTTM_ACCESS`, so it
+serves the example catalog. A push here deploys the demo.
+
+<https://on.calculon.tech> is a separate instance. It builds from
+`calculon-tech/on.calculon.tech` and gets its catalog and access lists from the
+platform, so a push here does not deploy it.
+
+The example catalog uses the six scene names as categories and fictional names
+for the cards; it is not a product list.
+
 ## Build
 
 ```

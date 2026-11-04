@@ -1,77 +1,78 @@
 {
   "title": "Welcome To The Matrix",
   "subtitle": "This is your last chance. After this, there is no turning back.",
-  "blurb": "One account, the same email everywhere.",
+  "blurb": "A public demo with a sample catalog. An instance supplies its own.",
   "defaultView": "flat",
   "matrixRain": true,
   "scenes": {
     "default": "downtown",
-    "byAudience": [
-      { "audience": "owner", "scene": "lobby" }
-    ]
+    "byAudience": []
   },
   "categories": [
     {
       "id": "apps",
-      "label": "Apps",
+      "label": "The Street",
       "icon": "◈",
       "tier": 0,
       "audience": ["everyone"],
       "apps": [
-        { "id": "chat", "title": "Chat", "description": "Talk to the machines", "url": "https://example.com/chat", "icon": "💬", "audience": ["everyone"] },
-        { "id": "passwords", "title": "Passwords", "description": "The vault", "url": "https://example.com/vault", "icon": "🔐", "audience": ["everyone"] }
+        { "id": "nebuchadnezzar", "title": "Nebuchadnezzar", "description": "The ship", "url": "https://example.com/ship", "icon": "🚢", "audience": ["everyone"] },
+        { "id": "zion", "title": "Zion", "description": "The last city", "url": "https://example.com/zion", "icon": "🏙", "audience": ["everyone"] }
       ]
     },
     {
       "id": "media",
-      "label": "Media",
+      "label": "The Lobby",
       "icon": "▶",
       "tier": 0,
-      "audience": ["members"],
+      "audience": ["everyone"],
       "apps": [
-        { "id": "watch", "title": "Watch", "description": "Everything, streaming", "url": "https://example.com/watch", "icon": "🎞", "audience": ["members"] },
-        { "id": "requests", "title": "Requests", "description": "Ask for more", "url": "https://example.com/requests", "icon": "🔎", "audience": ["members"] }
+        { "id": "dozer", "title": "Dozer", "description": "Watch", "url": "https://example.com/watch", "icon": "🎞", "audience": ["everyone"] },
+        { "id": "switch", "title": "Switch", "description": "Requests", "url": "https://example.com/requests", "icon": "🔎", "audience": ["everyone"] }
       ]
     },
     {
       "id": "websites",
-      "label": "Websites",
+      "label": "The Construct",
       "icon": "🌐",
       "tier": 0,
-      "audience": ["members"],
+      "audience": ["everyone"],
       "apps": [
-        { "id": "site-home", "title": "Home", "description": "The front door", "url": "https://example.com", "icon": "🏠", "audience": ["members"] }
+        { "id": "oracle", "title": "Oracle", "description": "Reading", "url": "https://example.com/read", "icon": "📖", "audience": ["everyone"] },
+        { "id": "keymaker", "title": "Keymaker", "description": "Code", "url": "https://example.com/code", "icon": "⌨", "audience": ["everyone"] }
       ]
     },
     {
       "id": "platform",
-      "label": "Platform",
+      "label": "The Nebuchadnezzar",
       "icon": "▤",
       "tier": 1,
-      "audience": ["owner"],
+      "audience": ["everyone"],
       "apps": [
-        { "id": "nomad", "title": "Nomad", "description": "Where the work runs", "url": "https://example.com/nomad", "icon": "⚙", "audience": ["owner"] },
-        { "id": "vault", "title": "Vault", "description": "The secrets", "url": "https://example.com/vault", "icon": "🗝", "audience": ["owner"] }
+        { "id": "tank", "title": "Tank", "description": "Spending", "url": "https://example.com/spend", "icon": "💰", "audience": ["everyone"] },
+        { "id": "seraph", "title": "Seraph", "description": "Passwords", "url": "https://example.com/passwords", "icon": "🔐", "audience": ["everyone"] }
       ]
     },
     {
       "id": "homeassistant",
-      "label": "Home Assistant",
+      "label": "The Oracle's Apartment",
       "icon": "⌂",
       "tier": 1,
-      "audience": ["owner"],
+      "audience": ["everyone"],
       "apps": [
-        { "id": "ha-129", "title": "129", "description": "Home Assistant", "url": "https://example.com/129", "icon": "⌂", "audience": ["owner"] }
+        { "id": "mouse", "title": "Mouse", "description": "Recipes", "url": "https://example.com/recipes", "icon": "🍲", "audience": ["everyone"] },
+        { "id": "apoc", "title": "Apoc", "description": "Home", "url": "https://example.com/home", "icon": "🏠", "audience": ["everyone"] }
       ]
     },
     {
       "id": "build",
-      "label": "Build",
+      "label": "The Keymaker's Room",
       "icon": "⌘",
       "tier": 2,
-      "audience": ["coder"],
+      "audience": ["everyone"],
       "apps": [
-        { "id": "workspaces", "title": "Workspaces", "description": "A shell on the platform", "url": "https://example.com/coder", "icon": "⌨", "audience": ["coder"] }
+        { "id": "cypher", "title": "Cypher", "description": "Messages", "url": "https://example.com/chat", "icon": "💬", "audience": ["everyone"] },
+        { "id": "trinity", "title": "Trinity", "description": "Photos", "url": "https://example.com/photos", "icon": "📷", "audience": ["everyone"] }
       ]
     }
   ]
